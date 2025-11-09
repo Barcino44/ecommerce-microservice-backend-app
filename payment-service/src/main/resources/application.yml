@@ -36,6 +36,23 @@ management:
     health:
       show-details: always
 
+spring:
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+      cache:
+        enabled: false  # Deshabilita el caché temporalmente para debugging
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    service-url:
+      defaultZone: http://service-discovery-container:8761/eureka/
+    registry-fetch-interval-seconds: 5  # Más frecuente para testing
+    instance-info-replication-interval-seconds: 5
 
 
 
