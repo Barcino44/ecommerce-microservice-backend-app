@@ -4,18 +4,47 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-{{ .Chart.Name }}
   annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true" 
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
+
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ .host }}
+        {{- end }}
+      secretName: {{ .Release.Name }}-{{ .Chart.Name }}-tls
+
   rules:
-    - host: {{ .Values.ingress.host }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host }}
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ .Release.Name }}-{{ .Chart.Name }}
+                name: {{ $.Release.Name }}-{{ $.Chart.Name }}
                 port:
-                  number: {{ .Values.service.port }}
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+
+    # Regla sin host → acceso por IP
+    - host: ""
+      http:
+        paths:
+          {{- $first := index .Values.ingress.hosts 0 }}
+          {{- range $first.paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $.Release.Name }}-{{ $.Chart.Name }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
 {{- end }}
