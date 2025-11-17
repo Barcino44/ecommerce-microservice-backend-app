@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if or .Values.config .Values.secrets }}
+          envFrom:
+            {{- if .Values.config }}
+            - configMapRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+            {{- end }}
+            {{- if .Values.secrets }}
+            - secretRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
+            {{- end }}
+          {{- end }}

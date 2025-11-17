@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.28
+          command:
+            - sh
+            - -c
+            - |
+              echo "⏳ Waiting for Cloud Config..."
+              until wget -qO- http://my-ecommerce-cloud-config:9296/actuator/health > /dev/null 2>&1; do
+                echo "Cloud Config not ready yet..."
+                sleep 5
+              done
+              echo "✔ Cloud Config is UP!"
+
+              echo "⏳ Waiting for Eureka..."
+              until nc -z my-ecommerce-service-discovery 8761; do
+                echo "Eureka not ready yet..."
+                sleep 5
+              done
+              echo "✔ Eureka is UP!"
+              
+              echo "✔ All dependencies are ready!"
+
+              echo "✔ Dependencies UP!"
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if or .Values.config .Values.secrets }}
+          envFrom:
+            {{- if .Values.config }}
+            - configMapRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+            {{- end }}
+            {{- if .Values.secrets }}
+            - secretRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
+            {{- end }}
+          {{- end }}
