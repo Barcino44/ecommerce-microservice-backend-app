@@ -2,9 +2,7 @@ name: Ecommerce CI/CD (Validate + Deploy + Test Endpoints)
 
 on:
   push:
-    branches: ['*']   # cualquier rama
   pull_request:
-    branches: ['*']   # cualquier rama
 
 env:
   HELM_VERSION: 3.12.0
@@ -15,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [cloud-config, service-discovery, shipping-service, product-service] # agrega todos tus micros
+        service: [cloud-config, service-discovery, shipping-service, product-service]
     name: Validate ${{ matrix.service }} Chart
 
     steps:
