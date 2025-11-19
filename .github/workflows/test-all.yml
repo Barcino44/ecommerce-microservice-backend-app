@@ -109,8 +109,8 @@ jobs:
           kubectl wait --for=condition=Ready pod --all --timeout=180s 2>&1 || echo "Some pods not ready"
           
           echo ""
-          echo "Waiting 200s for all services to register with Eureka..."
-          sleep 200
+          echo "Waiting 90s for all services to register with Eureka..."
+          sleep 90
 
       - name: Verify deployment status
         run: |
@@ -136,115 +136,75 @@ jobs:
           pkill -f "port-forward" || true
 
       # ===== TESTING PHASE =====
-      - name: Test Cloud Config
-        continue-on-error: true
+      - name: Create test pod with curl
         run: |
-          echo "Testing Cloud Config (port 9296)..."
-          kubectl port-forward svc/my-ecommerce-cloud-config 9296:9296 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:9296/actuator/health || echo "Cloud Config: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          kubectl run test-pod \
+            --image=curlimages/curl:latest \
+            --restart=Never \
+            --command \
+            -- sleep 3600
+          
+          echo "Waiting for test pod to be ready..."
+          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
 
-      - name: Test Service Discovery
+      - name: Test API Gateway via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing Service Discovery (port 8761)..."
-          kubectl port-forward svc/my-ecommerce-service-discovery 8761:8761 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8761/actuator/health || echo "Service Discovery: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing API Gateway via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-api-gateway:8080/app/api/products
 
-      - name: Test API Gateway
+      - name: Test Shipping Service via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing API Gateway (port 8080)..."
-          kubectl port-forward svc/my-ecommerce-api-gateway 8080:8080 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8080/actuator/health || echo "API Gateway: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Shipping Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings
 
-      - name: Test User Service
+      - name: Test User Service via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing User Service (port 8700)..."
-          kubectl port-forward svc/my-ecommerce-user-service 8700:8700 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8700/actuator/health || echo "User Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing User Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-user-service:8700/user-service/api/users
 
-      - name: Test Product Service
+      - name: Test Product Service via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing Product Service (port 8500)..."
-          kubectl port-forward svc/my-ecommerce-product-service 8500:8500 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8500/actuator/health || echo "Product Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Product Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-product-service:8500/product-service/api/products
 
-      - name: Test Order Service
+      - name: Test Favourite Service via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing Order Service (port 8300)..."
-          kubectl port-forward svc/my-ecommerce-order-service 8300:8300 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8300/actuator/health || echo "Order Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Favourite Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-favourite-service:8800/favourite-service/api/favourites
 
-      - name: Test Payment Service
+      - name: Test Payment Service via pod (DNS resolution)
         continue-on-error: true
         run: |
-          echo "Testing Payment Service (port 8400)..."
-          kubectl port-forward svc/my-ecommerce-payment-service 8400:8400 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8400/actuator/health || echo "Payment Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Payment Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-payment-service:8400/payment-service/api/payments
 
-      - name: Test Shipping Service
+      - name: Test Order Service health via pod
         continue-on-error: true
         run: |
-          echo "Testing Shipping Service (port 8600)..."
-          kubectl port-forward svc/my-ecommerce-shipping-service 8600:8600 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8600/actuator/health || echo "Shipping Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Order Service health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-order-service:8300/actuator/health
 
-      - name: Test Proxy Client
+      - name: Test Service Discovery health via pod
         continue-on-error: true
         run: |
-          echo "Testing Proxy Client (port 8900)..."
-          kubectl port-forward svc/my-ecommerce-proxy-client 8900:8900 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8900/actuator/health || echo "Proxy Client: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Service Discovery health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-service-discovery:8761/actuator/health
 
-      - name: Test Favourite Service
+      - name: Test Cloud Config health via pod
         continue-on-error: true
         run: |
-          echo "Testing Favourite Service (port 8800)..."
-          kubectl port-forward svc/my-ecommerce-favourite-service 8800:8800 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8800/actuator/health || echo "Favourite Service: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          echo "=== Testing Cloud Config health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-cloud-config:9296/actuator/health
 
-      - name: Test Zipkin
-        continue-on-error: true
+      - name: Cleanup test pod
+        if: always()
         run: |
-          echo "Testing Zipkin (port 9411)..."
-          kubectl port-forward svc/my-ecommerce-zipkin 9411:9411 &
-          sleep 2
-          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:9411/health || echo "Zipkin: unavailable"
-          pkill -f "port-forward" || true
-          sleep 1
+          kubectl delete pod test-pod --ignore-not-found
 
       # ===== SUMMARY PHASE =====
       - name: Final summary
