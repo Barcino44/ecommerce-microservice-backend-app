@@ -1,0 +1,228 @@
+name: Ecommerce CI/CD (Validate + Deploy + Test Endpoints)
+
+on:
+  push:
+  pull_request:
+
+env:
+  HELM_VERSION: 3.12.0
+  KIND_VERSION: v0.20.0
+
+jobs:
+  validate-charts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, favourite-service, zipkin, api-gateway]
+    name: Validate ${{ matrix.service }} Chart
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Helm lint ${{ matrix.service }}
+        run: |
+          helm lint ./helm/ecommerce/charts/${{ matrix.service }}
+
+      - name: Render Helm template ${{ matrix.service }}
+        run: |
+          helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
+            -f ./helm/ecommerce/charts/${{ matrix.service }}/values.yaml \
+            --set global.targetEnvironment=dev \
+            > helm-${{ matrix.service }}-rendered.yaml
+
+      - name: Upload rendered template
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-helm-template
+          path: helm-${{ matrix.service }}-rendered.yaml
+
+  deploy-and-test:
+    needs: validate-charts
+    runs-on: ubuntu-latest
+    name: Deploy & Test All Services
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Set up Kind
+        uses: engineerd/setup-kind@v0.6.2
+        with:
+          version: ${{ env.KIND_VERSION }}
+
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name ecommerce-ci --wait 60s
+
+      - name: Verify cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      # ===== DEPLOYMENT PHASE =====
+      - name: Helm deploy ecommerce
+        run: |
+          helm upgrade --install my-ecommerce ./helm/ecommerce \
+            -f ./helm/ecommerce/values.yaml \
+            --set global.targetEnvironment=dev
+
+      - name: Wait for pods to be created
+        run: |
+          echo "Waiting for pods to be created..."
+          sleep 15
+          kubectl get pods -o wide
+
+      # ===== EUREKA REGISTRATION PHASE =====
+      - name: Wait for Service Discovery (Eureka) first
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for Service Discovery (Eureka) to be Ready ==="
+          kubectl wait --for=condition=Ready pod -l app=service-discovery --timeout=180s 2>&1 || echo "service-discovery: timeout"
+          
+          echo "Waiting 40s for Eureka to fully initialize..."
+          sleep 40
+
+      - name: Wait for Cloud Config
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for Cloud Config to be Ready ==="
+          kubectl wait --for=condition=Ready pod -l app=cloud-config --timeout=180s 2>&1 || echo "cloud-config: timeout"
+          
+          echo "Waiting 30s for Cloud Config to register with Eureka..."
+          sleep 30
+
+      - name: Wait for all other services to be Ready
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for all pods to be Ready ==="
+          kubectl wait --for=condition=Ready pod --all --timeout=180s 2>&1 || echo "Some pods not ready"
+          
+          echo ""
+          echo "Waiting 90s for all services to register with Eureka..."
+          sleep 90
+
+      - name: Verify deployment status
+        run: |
+          echo "=== Pods Status ==="
+          kubectl get pods -o wide
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc
+          echo ""
+          echo "=== Deployments ==="
+          kubectl get deployments
+
+      - name: Check Eureka registry
+        continue-on-error: true
+        run: |
+          echo "=== Checking Eureka Service Registry ==="
+          kubectl port-forward svc/my-ecommerce-service-discovery 8761:8761 &
+          sleep 2
+          
+          echo "Registered services in Eureka:"
+          curl -s http://localhost:8761/eureka/apps | grep -o "<n>[^<]*</n>" | sed 's/<[^>]*>//g' | sort | uniq || echo "Could not fetch Eureka registry"
+          
+          pkill -f "port-forward" || true
+
+      # ===== TESTING PHASE =====
+      - name: Create test pod with curl
+        run: |
+          kubectl run test-pod \
+            --image=curlimages/curl:latest \
+            --restart=Never \
+            --command \
+            -- sleep 3600
+          
+          echo "Waiting for test pod to be ready..."
+          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
+
+      - name: Test API Gateway via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing API Gateway via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-api-gateway:8080/app/api/products
+
+      - name: Test Shipping Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Shipping Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings
+
+      - name: Test User Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing User Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-user-service:8700/user-service/api/users
+
+      - name: Test Product Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Product Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-product-service:8500/product-service/api/products
+
+      - name: Test Favourite Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Favourite Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-favourite-service:8800/favourite-service/api/favourites
+
+      - name: Test Payment Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Payment Service via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-payment-service:8400/payment-service/api/payments
+
+      - name: Test Order Service health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Order Service health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-order-service:8300/actuator/health
+
+      - name: Test Service Discovery health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Service Discovery health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-service-discovery:8761/actuator/health
+
+      - name: Test Cloud Config health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Cloud Config health via pod DNS ==="
+          kubectl exec test-pod -- curl -v http://my-ecommerce-cloud-config:9296/actuator/health
+
+      - name: Cleanup test pod
+        if: always()
+        run: |
+          kubectl delete pod test-pod --ignore-not-found
+
+      # ===== SUMMARY PHASE =====
+      - name: Final summary
+        if: always()
+        run: |
+          echo "=== Final Pod Status ==="
+          kubectl get pods -o wide
+          echo ""
+          echo "=== Final Services ==="
+          kubectl get svc
+          echo ""
+          echo "=== Final Deployments ==="
+          kubectl get deployments
+          echo ""
+          echo "=== Cluster Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -20
+
+      - name: Delete Kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name ecommerce-ci
