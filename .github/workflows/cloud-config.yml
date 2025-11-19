@@ -1,15 +1,15 @@
-name: Cloud config CI (Kind + Helm)
+name: Cloud Config CI/CD
 
 on:
   push:
     paths:
       - 'cloud-config/**'
-      - 'helm/**'
+      - 'helm/ecommerce/charts/cloud-config/**'
       - '.github/workflows/cloud-config.yml'
   pull_request:
     paths:
       - 'cloud-config/**'
-      - 'helm/**'
+      - 'helm/ecommerce/charts/cloud-config/**'
 
 env:
   HELM_VERSION: 3.12.0
@@ -18,70 +18,107 @@ env:
 jobs:
   ci-kind:
     runs-on: ubuntu-latest
+    name: Test Cloud Config with Kind
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Helm
       - name: Set up Helm
         uses: azure/setup-helm@v3
         with:
           version: ${{ env.HELM_VERSION }}
 
-      # Install Kind
       - name: Set up Kind
         uses: engineerd/setup-kind@v0.6.2
         with:
           version: ${{ env.KIND_VERSION }}
 
-      # Create Kind cluster
-      - name: Create cluster
+      # Crear cluster Kind
+      - name: Create Kind cluster
         run: |
-          kind create cluster --name ci-cluster --wait 60s
+          kind create cluster \
+            --name cloud-config-ci \
+            --wait 60s
 
-      - name: Update Helm dependencies
+      # Validar que el cluster está corriendo
+      - name: Verify cluster connection
         run: |
-          helm dependency update ./helm/ecommerce
+          echo "=== Cluster Info ==="
+          kubectl cluster-info
+          echo ""
+          echo "=== Nodes ==="
+          kubectl get nodes
+          echo ""
+          echo "=== Namespaces ==="
+          kubectl get namespaces
 
-      - name: Helm lint
+      # Lintear chart de cloud-config
+      - name: Helm lint cloud-config chart
         run: |
-          helm lint ./helm/ecommerce
+          helm lint ./helm/ecommerce/charts/cloud-config
 
-      # Render template
+      # Renderizar template
       - name: Render Helm template
         run: |
-          helm template my-ecommerce ./helm/ecommerce \
-            -f ./helm/ecommerce/values.yaml \
+          helm template cloud-config ./helm/ecommerce/charts/cloud-config \
+            -f ./helm/ecommerce/charts/cloud-config/values.yaml \
             --set global.targetEnvironment=dev \
             > helm-rendered.yaml
 
-      # Upload rendered template
+      # Subir artefacto
       - name: Upload helm template
         uses: actions/upload-artifact@v4
         with:
-          name: rendered-template
+          name: cloud-config-helm-template
           path: helm-rendered.yaml
 
-      # Deploy into Kind
-      - name: Helm install into Kind
+      # Crear namespace y desplegar
+      - name: Create namespace
         run: |
-          kubectl create namespace ecommerce || true
-          helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -n ecommerce \
-            -f ./helm/ecommerce/values.yaml \
+          kubectl create namespace cloud-config || true
+
+      - name: Helm deploy cloud-config
+        run: |
+          helm upgrade --install cloud-config ./helm/ecommerce/charts/cloud-config \
+            -n cloud-config \
+            -f ./helm/ecommerce/charts/cloud-config/values.yaml \
             --set global.targetEnvironment=dev \
-            --wait --timeout 3m
+            --wait \
+            --timeout 5m
 
-      # Verify deployments
-      - name: Verify pods running
+      # Esperar a que los pods estén listos
+      - name: Wait for pods to be ready
         run: |
-          kubectl get pods -n ecommerce
-          kubectl wait --for=condition=Ready pod --all -n ecommerce --timeout=60s
+          kubectl wait --for=condition=Ready pod \
+            -l app=cloud-config \
+            -n cloud-config \
+            --timeout=300s
 
-      # Destroy cluster
-      - name: Delete kind cluster
+      # Verificar estado del deployment
+      - name: Verify deployment status
+        run: |
+          echo "=== Pods in cloud-config namespace ==="
+          kubectl get pods -n cloud-config
+          echo ""
+          echo "=== Services in cloud-config namespace ==="
+          kubectl get svc -n cloud-config
+          echo ""
+          echo "=== Deployment Details ==="
+          kubectl describe deployment cloud-config -n cloud-config
+
+      # Verificar logs en caso de error
+      - name: Check logs if deployment failed
+        if: failure()
+        run: |
+          echo "=== Cloud Config Pod Logs ==="
+          kubectl logs -n cloud-config -l app=cloud-config --tail=100 || true
+          echo ""
+          echo "=== Cluster Events ==="
+          kubectl get events -n cloud-config --sort-by='.lastTimestamp' || true
+
+      # Cleanup
+      - name: Delete Kind cluster
         if: always()
         run: |
-          kind delete cluster --name ci-cluster
-
+          kind delete cluster --name cloud-config-ci
