@@ -109,8 +109,8 @@ jobs:
           kubectl wait --for=condition=Ready pod --all --timeout=180s 2>&1 || echo "Some pods not ready"
           
           echo ""
-          echo "Waiting 90s for all services to register with Eureka..."
-          sleep 90
+          echo "Waiting 200s for all services to register with Eureka..."
+          sleep 200
 
       - name: Verify deployment status
         run: |
