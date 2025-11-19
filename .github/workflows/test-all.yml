@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [cloud-config, service-discovery, shipping-service, product-service]
+        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, zipkin]
     name: Validate ${{ matrix.service }} Chart
 
     steps:
