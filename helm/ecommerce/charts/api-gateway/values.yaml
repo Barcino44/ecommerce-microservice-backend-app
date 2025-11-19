@@ -1,0 +1,32 @@
+
+replicaCount: 1
+image:
+  repository: "selimhorri/api-gateway-ecommerce-boot"
+  tag: "0.1.0"
+service:
+  type: ClusterIP
+  port: 8080
+# Configuración no sensible
+config:
+  springProfilesActive: dev
+  springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
+  springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+  eurekaClientRegion: default
+  eurekaClientAvailabilityZonesDefault: myzone
+  eurekaClientServiceUrlMyZone: "http://my-ecommerce-service-discovery:8761/eureka"
+  eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka"
+  eurekaInstancePreferIpAddress: "true"
+
+# Ingress
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: gateway.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    enabled: true
