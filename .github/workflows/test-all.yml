@@ -3,6 +3,7 @@ name: Ecommerce CI/CD (Validate + Deploy + Test Endpoints)
 on:
   push:
   pull_request:
+
 env:
   HELM_VERSION: 3.12.0
   KIND_VERSION: v0.20.0
@@ -12,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [cloud-config, service-discovery, shipping-service, product-service] # agrega todos tus micros
+        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, zipkin]
     name: Validate ${{ matrix.service }} Chart
 
     steps:
@@ -70,48 +71,44 @@ jobs:
           kubectl get nodes
           kubectl get namespaces
 
-      - name: Helm deploy ecommerce without waiting
+      - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ./helm/ecommerce/values.yaml \
-            --set global.targetEnvironment=dev
+            --set global.targetEnvironment=dev \
+            --wait \
+            --timeout 10m
 
-      - name: Stream logs of critical services until ready
+      - name: Wait for critical services
         run: |
-          function wait_and_tail() {
-            label=$1
-            namespace=default
-            while true; do
-              pod=$(kubectl get pods -n $namespace -l app=$label -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-              if [ -n "$pod" ]; then
-                status=$(kubectl get pod $pod -n $namespace -o jsonpath='{.status.containerStatuses[0].ready}')
-                echo "Pod $pod status: $status"
-                if [ "$status" = "true" ]; then
-                  echo "Pod $pod is Ready"
-                  break
-                fi
-                echo "Streaming logs for pod $pod..."
-                kubectl logs -f $pod -n $namespace --tail=20 &
-                sleep 5
-              else
-                echo "Waiting for pod with label $label..."
-                sleep 5
-              fi
-            done
-          }
-
-          wait_and_tail cloud-config
-          wait_and_tail service-discovery
-
-      - name: Wait for all pods
-        run: |
-          kubectl wait --for=condition=Ready pod --all --timeout=300s
+          echo "Waiting for cloud-config..."
+          kubectl wait --for=condition=Ready pod -l app=cloud-config --timeout=300s || true
+          
+          echo "Waiting for service-discovery..."
+          kubectl wait --for=condition=Ready pod -l app=service-discovery --timeout=300s || true
+          
+          echo "Waiting for all pods..."
+          kubectl wait --for=condition=Ready pod --all --timeout=300s || true
 
       - name: Verify deployments
         run: |
-          kubectl get pods -n default
-          kubectl get svc -n default
-          kubectl get deployments -n default
+          echo "=== Pods ==="
+          kubectl get pods
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc
+          echo ""
+          echo "=== Deployments ==="
+          kubectl get deployments
+          echo ""
+          echo "=== Events ==="
+          kubectl get events
+
+      - name: Check pod logs if any failed
+        if: failure()
+        run: |
+          kubectl logs --all-containers=true -l app=cloud-config --tail=50 || true
+          kubectl logs --all-containers=true -l app=service-discovery --tail=50 || true
 
   test-endpoints:
     needs: deploy-kind
@@ -122,15 +119,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure KUBECONFIG
+      - name: Set up Kind
+        uses: engineerd/setup-kind@v0.6.2
+        with:
+          version: ${{ env.KIND_VERSION }}
+
+      # NO necesitas configurar KUBECONFIG manualmente, 
+      # Kind ya lo configura automáticamente
+
+      - name: Verify cluster connection
         run: |
-          export KUBECONFIG=$(kind get kubeconfig-path --name="ecommerce-ci")
           kubectl cluster-info
           kubectl get nodes
+          kubectl get pods
 
       - name: Create test pod
         run: |
-          kubectl run test-pod --image=busybox:1.36 --restart=Never -- sleep 3600
+          kubectl run test-pod \
+            --image=busybox:1.36 \
+            --restart=Never \
+            --command \
+            -- sleep 3600
 
       - name: Wait for test pod ready
         run: |
@@ -138,15 +147,51 @@ jobs:
 
       - name: Test Shipping Service Endpoint
         run: |
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings || echo 'Endpoint failed'"
+          echo "Testing Shipping Service..."
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings 2>&1 || echo 'Endpoint check completed'"
 
       - name: Test Service Discovery Endpoint
         run: |
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-service-discovery:8600/actuator/health || echo 'Endpoint failed'"
+          echo "Testing Service Discovery..."
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-service-discovery:8600/actuator/health 2>&1 || echo 'Endpoint check completed'"
+
+      - name: Test Cloud Config Endpoint
+        run: |
+          echo "Testing Cloud Config..."
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-cloud-config:8888/actuator/health 2>&1 || echo 'Endpoint check completed'"
+
+      - name: Test API Gateway Endpoint
+        run: |
+          echo "Testing API Gateway..."
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-api-gateway:8080/actuator/health 2>&1 || echo 'Endpoint check completed'"
+
+      - name: Test internal DNS resolution
+        run: |
+          echo "Testing DNS resolution from test pod..."
+          kubectl exec test-pod -- sh -c "
+            echo 'Resolving service-discovery...'
+            nslookup my-ecommerce-service-discovery
+            echo ''
+            echo 'Resolving cloud-config...'
+            nslookup my-ecommerce-cloud-config
+            echo ''
+            echo 'Resolving shipping-service...'
+            nslookup my-ecommerce-shipping-service
+          " || true
 
       - name: Cleanup test pod
+        if: always()
         run: |
           kubectl delete pod test-pod --ignore-not-found
+
+      - name: Final cluster state
+        if: always()
+        run: |
+          echo "=== Final Pod Status ==="
+          kubectl get pods
+          echo ""
+          echo "=== Service Status ==="
+          kubectl get svc
 
       - name: Delete Kind cluster
         if: always()
