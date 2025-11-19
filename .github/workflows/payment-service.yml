@@ -40,11 +40,13 @@ jobs:
         run: |
           kind create cluster --name ci-cluster --wait 60s
 
-      # Lint chart
+      - name: Update Helm dependencies
+        run: |
+          helm dependency update ./helm/ecommerce
+
       - name: Helm lint
         run: |
           helm lint ./helm/ecommerce
-
       # Render template
       - name: Render Helm template
         run: |
