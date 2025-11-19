@@ -1,15 +1,15 @@
-name: User Service CI (Kind + Helm)
+name: User service CI/CD
 
 on:
   push:
     paths:
       - 'user-service/**'
-      - 'helm/user-service/**'
+      - 'helm/ecommerce/charts/user-service/**'
       - '.github/workflows/user-service.yml'
   pull_request:
     paths:
       - 'user-service/**'
-      - 'helm/user-service/**'
+      - 'helm/ecommerce/charts/user-service/**'
 
 env:
   HELM_VERSION: 3.12.0
@@ -18,66 +18,107 @@ env:
 jobs:
   ci-kind:
     runs-on: ubuntu-latest
+    name: Test
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Helm
       - name: Set up Helm
         uses: azure/setup-helm@v3
         with:
           version: ${{ env.HELM_VERSION }}
 
-      # Install Kind
       - name: Set up Kind
         uses: engineerd/setup-kind@v0.6.2
         with:
           version: ${{ env.KIND_VERSION }}
 
-      # Create Kind cluster
-      - name: Create cluster
+      # Crear cluster Kind
+      - name: Create Kind cluster
         run: |
-          kind create cluster --name ci-cluster --wait 60s
+          kind create cluster \
+            --name user-service-ci \
+            --wait 60s
 
-      # Helm lint ONLY user-service chart
-      - name: Helm lint (user-service)
+      # Validar que el cluster está corriendo
+      - name: Verify cluster connection
         run: |
-          helm lint ./helm/user-service
+          echo "=== Cluster Info ==="
+          kubectl cluster-info
+          echo ""
+          echo "=== Nodes ==="
+          kubectl get nodes
+          echo ""
+          echo "=== Namespaces ==="
+          kubectl get namespaces
 
-      # Render Helm template ONLY user-service
-      - name: Render Helm template (user-service)
+      # Lintear chart de user-service
+      - name: Helm lint user-service chart
         run: |
-          helm template user-service ./helm/user-service \
-            -f ./helm/user-service/values.yaml \
+          helm lint ./helm/ecommerce/charts/user-service
+
+      # Renderizar template
+      - name: Render Helm template
+        run: |
+          helm template user-service ./helm/ecommerce/charts/user-service \
+            -f ./helm/ecommerce/charts/user-service/values.yaml \
             --set global.targetEnvironment=dev \
-            > helm-rendered-user-service.yaml
+            > helm-rendered.yaml
 
-      # Upload rendered template
+      # Subir artefacto
       - name: Upload helm template
         uses: actions/upload-artifact@v4
         with:
-          name: user-service-rendered-template
-          path: helm-rendered-user-service.yaml
+          name: user-service-helm-template
+          path: helm-rendered.yaml
 
-      # Deploy user-service into Kind
-      - name: Helm install user-service into Kind
+      # Crear namespace y desplegar
+      - name: Create namespace
         run: |
-          kubectl create namespace ecommerce || true
-          helm upgrade --install user-service ./helm/user-service \
-            -n ecommerce \
-            -f ./helm/user-service/values.yaml \
+          kubectl create namespace user-service || true
+
+      - name: Helm deploy user-service
+        run: |
+          helm upgrade --install user-service ./helm/ecommerce/charts/user-service \
+            -n user-service \
+            -f ./helm/ecommerce/charts/user-service/values.yaml \
             --set global.targetEnvironment=dev \
-            --wait --timeout 3m
+            --wait \
+            --timeout 5m
 
-      # Verify only user-service pods
-      - name: Verify user-service pods
+      # Esperar a que los pods estén listos
+      - name: Wait for pods to be ready
         run: |
-          kubectl get pods -n ecommerce
-          kubectl wait --for=condition=Ready pod -l app=user-service -n ecommerce --timeout=60s
+          kubectl wait --for=condition=Ready pod \
+            -l app=user-service \
+            -n user-service \
+            --timeout=300s
 
-      # Destroy cluster
-      - name: Delete kind cluster
+      # Verificar estado del deployment
+      - name: Verify deployment status
+        run: |
+          echo "=== Pods in user-service namespace ==="
+          kubectl get pods -n user-service
+          echo ""
+          echo "=== Services in user-service namespace ==="
+          kubectl get svc -n user-service
+          echo ""
+          echo "=== Deployment Details ==="
+          kubectl describe deployment user-service -n user-service
+
+      # Verificar logs en caso de error
+      - name: Check logs if deployment failed
+        if: failure()
+        run: |
+          echo "=== User Service pod Logs ==="
+          kubectl logs -n user-service -l app=user-service --tail=100 || true
+          echo ""
+          echo "=== Cluster Events ==="
+          kubectl get events -n user-service --sort-by='.lastTimestamp' || true
+
+      # Cleanup
+      - name: Delete Kind cluster
         if: always()
         run: |
-          kind delete cluster --name ci-cluster
+          kind delete cluster --name user-service-ci

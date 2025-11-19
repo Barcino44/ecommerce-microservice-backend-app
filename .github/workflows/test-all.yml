@@ -1,0 +1,97 @@
+name: Ecommerce CI/CD
+
+on:
+  push:
+    paths:
+      - 'helm/ecommerce/**'
+      - '.github/workflows/ecommerce-ci.yml'
+  pull_request:
+    paths:
+      - 'helm/ecommerce/**'
+
+env:
+  HELM_VERSION: 3.12.0
+  KIND_VERSION: v0.20.0
+
+jobs:
+  ci-kind:
+    runs-on: ubuntu-latest
+    name: Deploy All Microservices with Kind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Set up Kind
+        uses: engineerd/setup-kind@v0.6.2
+        with:
+          version: ${{ env.KIND_VERSION }}
+
+      # Crear cluster único
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name ecommerce-ci --wait 60s
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          kubectl get namespaces
+
+      # Lint del chart principal
+      - name: Helm lint ecommerce chart
+        run: |
+          helm lint ./helm/ecommerce
+
+      # Renderizar templates (opcional, para ver el YAML generado)
+      - name: Render Helm templates
+        run: |
+          helm template my-ecommerce ./helm/ecommerce \
+            -f ./helm/ecommerce/values.yaml \
+            --set global.targetEnvironment=dev \
+            > helm-rendered.yaml
+
+      - name: Upload rendered templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecommerce-helm-template
+          path: helm-rendered.yaml
+
+      # Desplegar todos los microservicios con un solo comando
+      - name: Helm deploy ecommerce
+        run: |
+          helm upgrade --install my-ecommerce ./helm/ecommerce \
+            -f ./helm/ecommerce/values.yaml \
+            --set global.targetEnvironment=dev \
+            --wait \
+            --timeout 10m
+
+      # Esperar a que todos los pods estén listos
+      - name: Wait for all pods
+        run: |
+          kubectl wait --for=condition=Ready pod --all --timeout=300s
+
+      # Verificar estado de todos los deployments
+      - name: Verify deployments
+        run: |
+          kubectl get pods -n default
+          kubectl get svc -n default
+          kubectl get deployments -n default
+
+      # Logs y eventos en caso de fallo
+      - name: Check logs if deployment failed
+        if: failure()
+        run: |
+          kubectl logs -n default --all-containers --tail=100 || true
+          kubectl get events -n default --sort-by='.lastTimestamp' || true
+
+      # Cleanup
+      - name: Delete Kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name ecommerce-ci

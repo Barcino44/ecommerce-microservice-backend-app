@@ -1,15 +1,15 @@
-name: Proxy Client CI/CD
+name:  Proxy Client CI/CD
 
 on:
   push:
     paths:
       - 'proxy-client/**'
-      - 'helm/proxy-client/**'
+      - 'helm/ecommerce/charts/proxy-client/**'
       - '.github/workflows/proxy-client.yml'
   pull_request:
     paths:
       - 'proxy-client/**'
-      - 'helm/proxy-client/**'
+      - 'helm/ecommerce/charts/proxy-client/**'
 
 env:
   HELM_VERSION: 3.12.0
@@ -18,7 +18,7 @@ env:
 jobs:
   ci-kind:
     runs-on: ubuntu-latest
-    name: Test & Deploy Proxy Client
+    name: Test
 
     steps:
       - name: Checkout repository
@@ -34,23 +34,35 @@ jobs:
         with:
           version: ${{ env.KIND_VERSION }}
 
-      # Crear cluster Kind con nombre único
+      # Crear cluster Kind
       - name: Create Kind cluster
         run: |
           kind create cluster \
             --name proxy-client-ci \
             --wait 60s
 
-      # Lintear solo el chart de proxy-client
+      # Validar que el cluster está corriendo
+      - name: Verify cluster connection
+        run: |
+          echo "=== Cluster Info ==="
+          kubectl cluster-info
+          echo ""
+          echo "=== Nodes ==="
+          kubectl get nodes
+          echo ""
+          echo "=== Namespaces ==="
+          kubectl get namespaces
+
+      # Lintear chart de proxy-client
       - name: Helm lint proxy-client chart
         run: |
-          helm lint ./helm/proxy-client
+          helm lint ./helm/ecommerce/charts/proxy-client
 
       # Renderizar template
       - name: Render Helm template
         run: |
-          helm template proxy-client ./helm/proxy-client \
-            -f ./helm/proxy-client/values.yaml \
+          helm template proxy-client ./helm/ecommerce/charts/proxy-client \
+            -f ./helm/ecommerce/charts/proxy-client/values.yaml \
             --set global.targetEnvironment=dev \
             > helm-rendered.yaml
 
@@ -62,31 +74,48 @@ jobs:
           path: helm-rendered.yaml
 
       # Crear namespace y desplegar
-      - name: Deploy proxy-client to Kind
+      - name: Create namespace
         run: |
           kubectl create namespace proxy-client || true
-          helm upgrade --install proxy-client ./helm/proxy-client \
+
+      - name: Helm deploy proxy-client
+        run: |
+          helm upgrade --install proxy-client ./helm/ecommerce/charts/proxy-client \
             -n proxy-client \
-            -f ./helm/proxy-client/values.yaml \
+            -f ./helm/ecommerce/charts/proxy-client/values.yaml \
             --set global.targetEnvironment=dev \
             --wait \
             --timeout 5m
 
-      # Verificar pods
-      - name: Verify pods running
+      # Esperar a que los pods estén listos
+      - name: Wait for pods to be ready
         run: |
-          kubectl get pods -n proxy-client
           kubectl wait --for=condition=Ready pod \
             -l app=proxy-client \
             -n proxy-client \
-            --timeout=60s
+            --timeout=300s
 
-      # Tests básicos (opcional)
-      - name: Port forward and test health
+      # Verificar estado del deployment
+      - name: Verify deployment status
         run: |
-          kubectl port-forward -n proxy-client svc/proxy-client 8080:80 &
-          sleep 5
-          curl -f http://localhost:8080/health || true
+          echo "=== Pods in proxy-client namespace ==="
+          kubectl get pods -n proxy-client
+          echo ""
+          echo "=== Services in proxy-client namespace ==="
+          kubectl get svc -n proxy-client
+          echo ""
+          echo "=== Deployment Details ==="
+          kubectl describe deployment proxy-client -n proxy-client
+
+      # Verificar logs en caso de error
+      - name: Check logs if deployment failed
+        if: failure()
+        run: |
+          echo "=== Proxy Client pod Logs ==="
+          kubectl logs -n proxy-client -l app=proxy-client --tail=100 || true
+          echo ""
+          echo "=== Cluster Events ==="
+          kubectl get events -n proxy-client --sort-by='.lastTimestamp' || true
 
       # Cleanup
       - name: Delete Kind cluster
