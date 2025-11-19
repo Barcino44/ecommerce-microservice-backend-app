@@ -97,10 +97,10 @@ jobs:
           echo "=== Current pod status ==="
           kubectl get pods -n default
 
-      - name: Verify deployments and troubleshoot
+      - name: Verify deployments
         run: |
-          echo "=== Pods Status ==="
-          kubectl get pods -o wide
+          echo "=== Pods ==="
+          kubectl get pods
           echo ""
           echo "=== Services ==="
           kubectl get svc
@@ -108,25 +108,14 @@ jobs:
           echo "=== Deployments ==="
           kubectl get deployments
           echo ""
-          echo "=== Pod Events ==="
-          kubectl describe pods || true
-          echo ""
-          echo "=== Cluster Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | tail -30
+          echo "=== Events ==="
+          kubectl get events
 
-      - name: Check pod logs for diagnostics
-        if: always()
+      - name: Check pod logs if any failed
+        if: failure()
         run: |
-          echo "=== Cloud Config Logs ==="
-          kubectl logs -l app=cloud-config --all-containers=true --tail=100 2>&1 || echo "No logs available"
-          
-          echo ""
-          echo "=== Service Discovery Logs ==="
-          kubectl logs -l app=service-discovery --all-containers=true --tail=100 2>&1 || echo "No logs available"
-          
-          echo ""
-          echo "=== Shipping Service Logs ==="
-          kubectl logs -l app=shipping-service --all-containers=true --tail=100 2>&1 || echo "No logs available"
+          kubectl logs --all-containers=true -l app=cloud-config --tail=50 || true
+          kubectl logs --all-containers=true -l app=service-discovery --tail=50 || true
 
   test-endpoints:
     needs: deploy-kind
@@ -159,46 +148,42 @@ jobs:
             --command \
             -- sleep 3600
 
-      - name: Wait for test pod ready (with extended timeout)
+      - name: Wait for test pod ready
         run: |
-          kubectl wait --for=condition=Ready pod/test-pod --timeout=120s 2>&1 || echo "Test pod status: $?"
-          sleep 2
-          kubectl get pod test-pod
+          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
 
       - name: Test Shipping Service Endpoint
-        continue-on-error: true
         run: |
           echo "Testing Shipping Service..."
-          kubectl exec test-pod -- sh -c "wget -T 5 -qO- http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings 2>&1 || true"
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings 2>&1 || echo 'Endpoint check completed'"
 
       - name: Test Service Discovery Endpoint
-        continue-on-error: true
         run: |
           echo "Testing Service Discovery..."
-          kubectl exec test-pod -- sh -c "wget -T 5 -qO- http://my-ecommerce-service-discovery:8600/actuator/health 2>&1 || true"
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-service-discovery:8600/actuator/health 2>&1 || echo 'Endpoint check completed'"
 
       - name: Test Cloud Config Endpoint
-        continue-on-error: true
         run: |
           echo "Testing Cloud Config..."
-          kubectl exec test-pod -- sh -c "wget -T 5 -qO- http://my-ecommerce-cloud-config:8888/actuator/health 2>&1 || true"
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-cloud-config:8888/actuator/health 2>&1 || echo 'Endpoint check completed'"
 
       - name: Test API Gateway Endpoint
-        continue-on-error: true
         run: |
           echo "Testing API Gateway..."
-          kubectl exec test-pod -- sh -c "wget -T 5 -qO- http://my-ecommerce-api-gateway:8080/actuator/health 2>&1 || true"
+          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-api-gateway:8080/actuator/health 2>&1 || echo 'Endpoint check completed'"
 
       - name: Test internal DNS resolution
-        continue-on-error: true
         run: |
           echo "Testing DNS resolution from test pod..."
           kubectl exec test-pod -- sh -c "
             echo 'Resolving service-discovery...'
-            nslookup my-ecommerce-service-discovery || true
+            nslookup my-ecommerce-service-discovery
             echo ''
             echo 'Resolving cloud-config...'
-            nslookup my-ecommerce-cloud-config || true
+            nslookup my-ecommerce-cloud-config
+            echo ''
+            echo 'Resolving shipping-service...'
+            nslookup my-ecommerce-shipping-service
           " || true
 
       - name: Cleanup test pod
