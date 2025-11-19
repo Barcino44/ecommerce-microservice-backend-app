@@ -13,6 +13,5 @@ config:
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
-  eurekaInstanceHostname: product-service-container
-  eurekaInstancePreferIpAddress: "false"
+  eurekaInstancePreferIpAddress: "true"
 
