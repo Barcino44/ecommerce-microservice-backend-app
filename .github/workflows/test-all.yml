@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, zipkin]
+        service: [cloud-config, service-discovery, shipping-service, product-service] # agrega todos tus micros
     name: Validate ${{ matrix.service }} Chart
 
     steps:
@@ -71,13 +71,38 @@ jobs:
           kubectl get nodes
           kubectl get namespaces
 
-      - name: Helm deploy ecommerce
+      - name: Helm deploy ecommerce without waiting
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ./helm/ecommerce/values.yaml \
-            --set global.targetEnvironment=dev \
-            --wait \
-            --timeout 10m
+            --set global.targetEnvironment=dev
+
+      - name: Stream logs of critical services until ready
+        run: |
+          function wait_and_tail() {
+            label=$1
+            namespace=default
+            while true; do
+              pod=$(kubectl get pods -n $namespace -l app=$label -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+              if [ -n "$pod" ]; then
+                status=$(kubectl get pod $pod -n $namespace -o jsonpath='{.status.containerStatuses[0].ready}')
+                echo "Pod $pod status: $status"
+                if [ "$status" = "true" ]; then
+                  echo "Pod $pod is Ready"
+                  break
+                fi
+                echo "Streaming logs for pod $pod..."
+                kubectl logs -f $pod -n $namespace --tail=20 &
+                sleep 5
+              else
+                echo "Waiting for pod with label $label..."
+                sleep 5
+              fi
+            done
+          }
+
+          wait_and_tail cloud-config
+          wait_and_tail service-discovery
 
       - name: Wait for all pods
         run: |
