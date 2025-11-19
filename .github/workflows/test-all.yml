@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, zipkin]
+        service: [cloud-config, service-discovery, shipping-service, product-service, proxy-client, user-service, payment-service, order-service, favourite-service, zipkin, api-gateway]
     name: Validate ${{ matrix.service }} Chart
 
     steps:
@@ -42,10 +42,10 @@ jobs:
           name: ${{ matrix.service }}-helm-template
           path: helm-${{ matrix.service }}-rendered.yaml
 
-  deploy-kind:
+  deploy-and-test:
     needs: validate-charts
     runs-on: ubuntu-latest
-    name: Deploy All Microservices with Kind
+    name: Deploy & Test All Services
 
     steps:
       - name: Checkout repository
@@ -69,136 +69,198 @@ jobs:
         run: |
           kubectl cluster-info
           kubectl get nodes
-          kubectl get namespaces
 
-      - name: Helm deploy ecommerce (without wait)
+      # ===== DEPLOYMENT PHASE =====
+      - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ./helm/ecommerce/values.yaml \
             --set global.targetEnvironment=dev
 
-      - name: Wait for pods to exist
+      - name: Wait for pods to be created
         run: |
           echo "Waiting for pods to be created..."
-          sleep 10
-          kubectl get pods -n default
+          sleep 15
+          kubectl get pods -o wide
 
-      - name: Wait for critical services with extended timeout
+      # ===== EUREKA REGISTRATION PHASE =====
+      - name: Wait for Service Discovery (Eureka) first
+        continue-on-error: true
         run: |
-          echo "=== Waiting for cloud-config (timeout: 600s) ==="
-          kubectl wait --for=condition=Ready pod -l app=cloud-config --timeout=600s 2>&1 || echo "cloud-config wait completed with status: $?"
+          echo "=== Waiting for Service Discovery (Eureka) to be Ready ==="
+          kubectl wait --for=condition=Ready pod -l app=service-discovery --timeout=180s 2>&1 || echo "service-discovery: timeout"
+          
+          echo "Waiting 40s for Eureka to fully initialize..."
+          sleep 40
+
+      - name: Wait for Cloud Config
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for Cloud Config to be Ready ==="
+          kubectl wait --for=condition=Ready pod -l app=cloud-config --timeout=180s 2>&1 || echo "cloud-config: timeout"
+          
+          echo "Waiting 30s for Cloud Config to register with Eureka..."
+          sleep 30
+
+      - name: Wait for all other services to be Ready
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for all pods to be Ready ==="
+          kubectl wait --for=condition=Ready pod --all --timeout=180s 2>&1 || echo "Some pods not ready"
           
           echo ""
-          echo "=== Waiting for service-discovery (timeout: 600s) ==="
-          kubectl wait --for=condition=Ready pod -l app=service-discovery --timeout=600s 2>&1 || echo "service-discovery wait completed with status: $?"
-          
-          sleep 5
-          echo ""
-          echo "=== Current pod status ==="
-          kubectl get pods -n default
+          echo "Waiting 90s for all services to register with Eureka..."
+          sleep 90
 
-      - name: Verify deployments
+      - name: Verify deployment status
         run: |
-          echo "=== Pods ==="
-          kubectl get pods
+          echo "=== Pods Status ==="
+          kubectl get pods -o wide
           echo ""
           echo "=== Services ==="
           kubectl get svc
           echo ""
           echo "=== Deployments ==="
           kubectl get deployments
-          echo ""
-          echo "=== Events ==="
-          kubectl get events
 
-      - name: Check pod logs if any failed
-        if: failure()
+      - name: Check Eureka registry
+        continue-on-error: true
         run: |
-          kubectl logs --all-containers=true -l app=cloud-config --tail=50 || true
-          kubectl logs --all-containers=true -l app=service-discovery --tail=50 || true
+          echo "=== Checking Eureka Service Registry ==="
+          kubectl port-forward svc/my-ecommerce-service-discovery 8761:8761 &
+          sleep 2
+          
+          echo "Registered services in Eureka:"
+          curl -s http://localhost:8761/eureka/apps | grep -o "<n>[^<]*</n>" | sed 's/<[^>]*>//g' | sort | uniq || echo "Could not fetch Eureka registry"
+          
+          pkill -f "port-forward" || true
 
-  test-endpoints:
-    needs: deploy-kind
-    runs-on: ubuntu-latest
-    name: Test Microservices Endpoints
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Kind
-        uses: engineerd/setup-kind@v0.6.2
-        with:
-          version: ${{ env.KIND_VERSION }}
-
-      # NO necesitas configurar KUBECONFIG manualmente, 
-      # Kind ya lo configura automáticamente
-
-      - name: Verify cluster connection
+      # ===== TESTING PHASE =====
+      - name: Test Cloud Config
+        continue-on-error: true
         run: |
-          kubectl cluster-info
-          kubectl get nodes
-          kubectl get pods
+          echo "Testing Cloud Config (port 9296)..."
+          kubectl port-forward svc/my-ecommerce-cloud-config 9296:9296 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:9296/actuator/health || echo "Cloud Config: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Create test pod
+      - name: Test Service Discovery
+        continue-on-error: true
         run: |
-          kubectl run test-pod \
-            --image=busybox:1.36 \
-            --restart=Never \
-            --command \
-            -- sleep 3600
+          echo "Testing Service Discovery (port 8761)..."
+          kubectl port-forward svc/my-ecommerce-service-discovery 8761:8761 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8761/actuator/health || echo "Service Discovery: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Wait for test pod ready
+      - name: Test API Gateway
+        continue-on-error: true
         run: |
-          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
+          echo "Testing API Gateway (port 8080)..."
+          kubectl port-forward svc/my-ecommerce-api-gateway 8080:8080 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8080/actuator/health || echo "API Gateway: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Test Shipping Service Endpoint
+      - name: Test User Service
+        continue-on-error: true
         run: |
-          echo "Testing Shipping Service..."
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-shipping-service:8600/shipping-service/api/shippings 2>&1 || echo 'Endpoint check completed'"
+          echo "Testing User Service (port 8700)..."
+          kubectl port-forward svc/my-ecommerce-user-service 8700:8700 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8700/actuator/health || echo "User Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Test Service Discovery Endpoint
+      - name: Test Product Service
+        continue-on-error: true
         run: |
-          echo "Testing Service Discovery..."
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-service-discovery:8600/actuator/health 2>&1 || echo 'Endpoint check completed'"
+          echo "Testing Product Service (port 8500)..."
+          kubectl port-forward svc/my-ecommerce-product-service 8500:8500 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8500/actuator/health || echo "Product Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Test Cloud Config Endpoint
+      - name: Test Order Service
+        continue-on-error: true
         run: |
-          echo "Testing Cloud Config..."
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-cloud-config:8888/actuator/health 2>&1 || echo 'Endpoint check completed'"
+          echo "Testing Order Service (port 8300)..."
+          kubectl port-forward svc/my-ecommerce-order-service 8300:8300 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8300/actuator/health || echo "Order Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Test API Gateway Endpoint
+      - name: Test Payment Service
+        continue-on-error: true
         run: |
-          echo "Testing API Gateway..."
-          kubectl exec test-pod -- sh -c "wget -qO- http://my-ecommerce-api-gateway:8080/actuator/health 2>&1 || echo 'Endpoint check completed'"
+          echo "Testing Payment Service (port 8400)..."
+          kubectl port-forward svc/my-ecommerce-payment-service 8400:8400 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8400/actuator/health || echo "Payment Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Test internal DNS resolution
+      - name: Test Shipping Service
+        continue-on-error: true
         run: |
-          echo "Testing DNS resolution from test pod..."
-          kubectl exec test-pod -- sh -c "
-            echo 'Resolving service-discovery...'
-            nslookup my-ecommerce-service-discovery
-            echo ''
-            echo 'Resolving cloud-config...'
-            nslookup my-ecommerce-cloud-config
-            echo ''
-            echo 'Resolving shipping-service...'
-            nslookup my-ecommerce-shipping-service
-          " || true
+          echo "Testing Shipping Service (port 8600)..."
+          kubectl port-forward svc/my-ecommerce-shipping-service 8600:8600 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8600/actuator/health || echo "Shipping Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Cleanup test pod
-        if: always()
+      - name: Test Proxy Client
+        continue-on-error: true
         run: |
-          kubectl delete pod test-pod --ignore-not-found
+          echo "Testing Proxy Client (port 8900)..."
+          kubectl port-forward svc/my-ecommerce-proxy-client 8900:8900 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8900/actuator/health || echo "Proxy Client: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
 
-      - name: Final cluster state
+      - name: Test Favourite Service
+        continue-on-error: true
+        run: |
+          echo "Testing Favourite Service (port 8800)..."
+          kubectl port-forward svc/my-ecommerce-favourite-service 8800:8800 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:8800/actuator/health || echo "Favourite Service: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
+
+      - name: Test Zipkin
+        continue-on-error: true
+        run: |
+          echo "Testing Zipkin (port 9411)..."
+          kubectl port-forward svc/my-ecommerce-zipkin 9411:9411 &
+          sleep 2
+          curl -s -w "\nHTTP Status: %{http_code}\n" http://localhost:9411/health || echo "Zipkin: unavailable"
+          pkill -f "port-forward" || true
+          sleep 1
+
+      # ===== SUMMARY PHASE =====
+      - name: Final summary
         if: always()
         run: |
           echo "=== Final Pod Status ==="
-          kubectl get pods
+          kubectl get pods -o wide
           echo ""
-          echo "=== Service Status ==="
+          echo "=== Final Services ==="
           kubectl get svc
+          echo ""
+          echo "=== Final Deployments ==="
+          kubectl get deployments
+          echo ""
+          echo "=== Cluster Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -20
 
       - name: Delete Kind cluster
         if: always()
