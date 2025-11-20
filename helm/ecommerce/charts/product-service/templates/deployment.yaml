@@ -54,10 +54,3 @@ spec:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
             {{- end }}
           {{- end }}
-          resources:
-            requests:
-                cpu: {{ .Values.global.resources.requests.cpu }} 
-                memory: {{ .Values.global.resources.requests.memory }}  
-            limits:
-                cpu: {{ .Values.global.resources.limits.cpu }}  
-                memory: {{ .Values.global.resources.limits.memory }}
