@@ -75,6 +75,7 @@ jobs:
       # ===== DEPLOYMENT PHASE =====
       - name: Helm deploy ecommerce
         run: |
+          helm dependency update ./helm/ecommerce
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev
@@ -83,7 +84,7 @@ jobs:
         run: |
           echo "Waiting for pods to be created..."
           sleep 15
-          kubectl get pods -o wide
+          kubectl get pods -o wide -n dev
 
       # ===== EUREKA REGISTRATION PHASE =====
       - name: Wait for Service Discovery (Eureka) first
