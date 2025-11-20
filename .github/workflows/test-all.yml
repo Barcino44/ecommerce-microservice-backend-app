@@ -117,13 +117,13 @@ jobs:
       - name: Verify deployment status
         run: |
           echo "=== Pods Status ==="
-          kubectl get pods -o wide
+          kubectl get pods -o wide -n dev
           echo ""
           echo "=== Services ==="
-          kubectl get svc
+          kubectl get svc -n dev
           echo ""
           echo "=== Deployments ==="
-          kubectl get deployments
+          kubectl get deployments -n dev
 
       - name: Check Eureka registry
         continue-on-error: true
@@ -141,13 +141,13 @@ jobs:
       - name: Create test pod with curl
         run: |
           kubectl run test-pod \
+            -n dev \
             --image=curlimages/curl:latest \
             --restart=Never \
-            --command \
-            -- sleep 3600
-          
+            --command -- sleep 3600
+
           echo "Waiting for test pod to be ready..."
-          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
+          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
 
       - name: Test API Gateway via pod (DNS resolution)
         continue-on-error: true
@@ -213,13 +213,13 @@ jobs:
         if: always()
         run: |
           echo "=== Final Pod Status ==="
-          kubectl get pods -o wide
+          kubectl get pods -o wide -n dev
           echo ""
           echo "=== Final Services ==="
-          kubectl get svc
+          kubectl get svc -n dev
           echo ""
           echo "=== Final Deployments ==="
-          kubectl get deployments
+          kubectl get deployments -n dev
           echo ""
           echo "=== Cluster Events ==="
           kubectl get events --sort-by='.lastTimestamp' | tail -20
