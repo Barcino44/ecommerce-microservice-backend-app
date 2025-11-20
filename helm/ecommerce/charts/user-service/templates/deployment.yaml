@@ -2,10 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-{{ .Chart.Name }}
+  namespace: {{ .Values.global.namespace }}
   labels:
     app: {{ .Chart.Name }}
 spec:
-  replicas: {{ .Values.replicaCount | default 1 }}
+  replicas: {{ .Values.replicaCount}}
   selector:
     matchLabels:
       app: {{ .Chart.Name }}
