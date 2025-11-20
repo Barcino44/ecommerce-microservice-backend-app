@@ -28,7 +28,7 @@ jobs:
       - name: Helm lint ${{ matrix.service }}
         run: |
           helm lint ./helm/ecommerce/charts/${{ matrix.service }} \
-            -f ./helm/ecommerce/charts/${{ matrix.service }}/values-dev.yaml \
+            -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev
 
       - name: Render Helm template ${{ matrix.service }}
