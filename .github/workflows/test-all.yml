@@ -74,7 +74,7 @@ jobs:
       - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f ./helm/ecommerce/values.yaml \
+            -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev
 
       - name: Wait for pods to be created
