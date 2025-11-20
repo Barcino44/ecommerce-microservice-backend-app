@@ -34,7 +34,7 @@ jobs:
       - name: Render Helm template ${{ matrix.service }}
         run: |
           helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
-            -f ./helm/ecommerce/charts/${{ matrix.service }}/values-dev.yaml \
+            -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev \
             > helm-${{ matrix.service }}-rendered.yaml
 
