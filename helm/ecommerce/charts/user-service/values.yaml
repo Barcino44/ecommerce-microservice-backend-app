@@ -14,3 +14,17 @@ config:
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
+
+database:
+  url: jdbc:h2:file:/data/users;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE
+  username: sa
+  password: ""
+  driverClassName: org.h2.Driver 
+  ddlAuto: validate
+  flywayEnabled: "true"
+
+persistence:
+  enabled: true
+  size: 5Gi
+  mountPath: /data
+  storageClassName: standard

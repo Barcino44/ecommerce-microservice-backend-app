@@ -6,7 +6,7 @@ metadata:
   labels:
     app: {{ .Chart.Name }}
 spec:
-  replicas: {{ .Values.replicaCount}}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: {{ .Chart.Name }}
@@ -15,6 +15,7 @@ spec:
       labels:
         app: {{ .Chart.Name }}
     spec:
+
       initContainers:
         - name: wait-for-dependencies
           image: busybox:1.28
@@ -35,14 +36,15 @@ spec:
                 sleep 5
               done
               echo "✔ Eureka is UP!"
-              
               echo "✔ All dependencies are ready!"
+
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.service.port }}
+
           {{- if or .Values.config .Values.secrets }}
           envFrom:
             {{- if .Values.config }}
@@ -54,3 +56,16 @@ spec:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
             {{- end }}
           {{- end }}
+
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: datos-persistentes
+              mountPath: {{ .Values.persistence.mountPath }}
+          {{- end }}
+
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: datos-persistentes
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-{{ .Chart.Name }}-pvc
+      {{- end }}
