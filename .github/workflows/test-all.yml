@@ -57,7 +57,7 @@ jobs:
             cd ${{ matrix.service }}
             mvn test
           fi
-        continue-on-error: true
+        
 
       - name: Upload build artifact
         if: always()
@@ -65,6 +65,20 @@ jobs:
         with:
           name: ${{ matrix.service }}-build
           path: ${{ matrix.service }}/target/*.jar
+          
+      - name: Debug - List downloaded files
+        run: |
+          echo "=== Checking download location ==="
+          pwd
+          echo ""
+          echo "=== Contents of current directory ==="
+          ls -lah
+          echo ""
+          echo "=== Contents of ${{ matrix.service }}/target/ ==="
+          ls -lah ${{ matrix.service }}/target/ 2>&1 || echo "Directory not found"
+          echo ""
+          echo "=== Find all JARs ==="
+          find . -name "*.jar" -type f 2>/dev/null || echo "No JARs found"
 
   # ============================================
   # 2. VALIDATE HELM CHARTS
@@ -101,7 +115,7 @@ jobs:
               -f ./helm/ecommerce/values-dev.yaml \
               --set global.targetEnvironment=dev
           fi
-        continue-on-error: true
+
 
       - name: Render Helm template ${{ matrix.service }}
         run: |
@@ -111,7 +125,7 @@ jobs:
               --set global.targetEnvironment=dev \
               > helm-${{ matrix.service }}-rendered.yaml
           fi
-        continue-on-error: true
+        
 
   # ============================================
   # 3. BUILD DOCKER IMAGES & PUSH
@@ -219,7 +233,7 @@ jobs:
             -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev \
             -n dev
-        continue-on-error: true
+        
 
       - name: Wait for services
         run: |
@@ -240,7 +254,7 @@ jobs:
           kubectl get svc -n dev
 
       - name: Run health checks
-        continue-on-error: true
+        
         run: |
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
