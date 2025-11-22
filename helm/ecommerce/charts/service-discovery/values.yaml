@@ -1,6 +1,12 @@
-image:
-  repository: "barcino/service-discovery"
-  tag: "latest"
+blue:
+  image:
+    repository: "barcino/cloud-config"
+    tag: "latest"
+
+green:
+  image:
+    repository: "barcino/cloud-config"
+    tag: "latest"
 
 service:
   type: LoadBalancer
@@ -11,3 +17,8 @@ config:
   springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+
+deploymentStrategy:
+  type: blue-green
+  active: blue 
+

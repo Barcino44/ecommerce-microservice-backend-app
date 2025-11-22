@@ -1,0 +1,37 @@
+{{- $active := .Values.deploymentStrategy.active}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-green
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+    color: green
+spec:
+  replicas: {{ if eq $active "green" }}{{ .Values.global.replicaCount }}{{ else }}0{{ end }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      color: green
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        color: green
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.green.image.repository }}:{{ .Values.green.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if or .Values.config .Values.secrets }}
+          envFrom:
+            {{- if .Values.config }}
+            - configMapRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+            {{- end }}
+            {{- if .Values.secrets }}
+            - secretRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
+            {{- end }}
+          {{- end }}
