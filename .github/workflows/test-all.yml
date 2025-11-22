@@ -155,6 +155,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-build
+          path: ./${{ matrix.service }}/target/
+
       # 3️⃣ TERCERO: Verificar que JAR existe (ya compilado en build-services)
       - name: Verify JAR exists
         run: |
