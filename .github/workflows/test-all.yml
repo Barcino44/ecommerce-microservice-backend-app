@@ -28,6 +28,7 @@ jobs:
           - shipping-service
           - favourite-service
           - api-gateway
+          - proxy-client
     
     name: Build ${{ matrix.service }}
     
