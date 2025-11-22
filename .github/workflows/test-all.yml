@@ -20,14 +20,15 @@ jobs:
     strategy:
       matrix:
         service:
-          - cloud-config
-          - service-discovery
           - user-service
           - product-service
           - payment-service
           - shipping-service
           - favourite-service
           - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
           - proxy-client
     
     name: Build ${{ matrix.service }}
@@ -84,6 +85,7 @@ jobs:
           - favourite-service
           - api-gateway
           - service-discovery
+          - order-service
           - cloud-config
           - proxy-client
     
@@ -162,15 +164,15 @@ jobs:
     strategy:
       matrix:
         service:
-          - cloud-config
-          - service-discovery
           - user-service
           - product-service
           - payment-service
           - shipping-service
           - favourite-service
           - api-gateway
+          - service-discovery
           - order-service
+          - cloud-config
           - proxy-client
     
     name: Validate ${{ matrix.service }} Helm Chart
