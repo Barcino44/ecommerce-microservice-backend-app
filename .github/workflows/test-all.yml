@@ -143,8 +143,23 @@ jobs:
         with:
           name: ${{ matrix.service }}-build
           path: ${{ matrix.service }}/target/
-        
 
+      - name: List downloaded files
+        run: |
+          echo "Checking if JAR exists:"
+          ls -lh ${{ matrix.service }}/target/ || echo "❌ Target directory is empty or missing!"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
