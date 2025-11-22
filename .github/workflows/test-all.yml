@@ -156,7 +156,7 @@ jobs:
   # 3. VALIDATE HELM CHARTS
   # ============================================
 
-    validate-charts:
+  validate-charts:
     needs: build-docker-images
     runs-on: ubuntu-latest
     strategy:
