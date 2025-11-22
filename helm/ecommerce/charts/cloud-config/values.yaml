@@ -1,7 +1,7 @@
 replicaCount: 1
 image:
-  repository: "selimhorri/cloud-config-ecommerce-boot"
-  tag: "0.1.0"
+  repository: "barcino/cloud-config"
+  tag: "latest"
   imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP

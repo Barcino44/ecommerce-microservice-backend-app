@@ -1,9 +1,6 @@
-replicaCount: 1
-
 image:
-  repository: "selimhorri/service-discovery-ecommerce-boot"
-  tag: "0.1.0"
-  imagePullPolicy: IfNotPresent
+  repository: "barcino/service-discovery"
+  tag: "latest"
 
 service:
   type: LoadBalancer

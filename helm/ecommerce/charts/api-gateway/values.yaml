@@ -1,8 +1,7 @@
-
-replicaCount: 1
 image:
-  repository: "selimhorri/api-gateway-ecommerce-boot"
-  tag: "0.1.0"
+  repository: "barcino/api-gateway"
+  tag: "latest"
+  imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP
   port: 8080

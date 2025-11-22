@@ -1,8 +1,6 @@
-replicaCount: 1
 image:
-  repository: "selimhorri/shipping-service-ecommerce-boot"
-  tag: "0.1.0"
-  imagePullPolicy: IfNotPresent
+  repository: "barcino/shipping-service"
+  tag: "latest"
 service:
   type: ClusterIP
   port: 8600
