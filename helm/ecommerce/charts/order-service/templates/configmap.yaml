@@ -14,3 +14,5 @@ data:
   EUREKA_CLIENT_SERVICE_URL_MYZONE: {{ .Values.config.eurekaClientServiceUrlMyZone | quote }}
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.config.eurekaClientServiceUrlDefaultZone | quote }}
   EUREKA_INSTANCE_PREFER_IP_ADDRESS: {{ .Values.config.eurekaInstancePreferIpAddress | quote }}
+  application.yml: |
+    {{ .Values.applicationConfig | nindent 4 }}
