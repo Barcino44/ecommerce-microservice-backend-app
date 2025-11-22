@@ -161,17 +161,26 @@ jobs:
           name: ${{ matrix.service }}-build
           path: ./${{ matrix.service }}/target/
 
-      # 3️⃣ TERCERO: Verificar que JAR existe (ya compilado en build-services)
-      - name: Debug - Find JAR
+      - name: Verify and organize JAR
         run: |
-          echo "Current directory:"
-          pwd
-          echo ""
-          echo "Contents of current directory:"
-          ls -lah
-          echo ""
-          echo "Finding all JARs:"
-          find . -name "*.jar" -type f 2>/dev/null | head -20
+          # El artifact se descarga como ZIP, necesita extraerse
+          mkdir -p ${{ matrix.service }}/target/
+          
+          # Si está en artifact-temp, mover
+          if [ -d "artifact-temp" ]; then
+            mv artifact-temp/* ${{ matrix.service }}/target/ 2>/dev/null || true
+            rmdir artifact-temp
+          fi
+          
+          # Verificar que existe
+          echo "Listing ${{ matrix.service }}/target/:"
+          ls -lah ${{ matrix.service }}/target/
+          
+          if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
+            echo "❌ JAR not found"
+            exit 1
+          fi
+          echo "✅ JAR verified"
 
       # 4️⃣ CUARTO: Login a Docker Hub
       - name: Login to Docker Hub
