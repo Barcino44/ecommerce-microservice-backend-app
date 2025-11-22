@@ -164,12 +164,14 @@ jobs:
       # 3️⃣ TERCERO: Verificar que JAR existe (ya compilado en build-services)
       - name: Verify JAR exists
         run: |
-          if [ -f "${{ matrix.service }}/target/${{ matrix.service }}-v*.jar" ]; then
+          echo "Listing downloaded files:"
+          ls -lah service-discovery/target/
+          
+          # Verificar que existe
+          if ls service-discovery/target/*.jar 1> /dev/null 2>&1; then
             echo "✅ JAR found"
-            ls -lh ${{ matrix.service }}/target/${{ matrix.service }}-v*.jar
           else
-            echo "❌ JAR not found in ${{ matrix.service }}/target/"
-            ls -lh ${{ matrix.service }}/target/ || echo "Target directory doesn't exist"
+            echo "❌ JAR not found"
             exit 1
           fi
 
