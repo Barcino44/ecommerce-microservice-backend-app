@@ -203,11 +203,11 @@ jobs:
   # ============================================
   # 4. DEPLOY & TEST (Kind Cluster - CI)
   # ============================================
-  deploy-and-test-ci:
+  deploy-and-test:
     needs: [build-services, validate-charts]
     runs-on: ubuntu-latest
-    name: Test in Kind Cluster (CI)
-    
+    name: Deploy & Test All Services
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -225,70 +225,157 @@ jobs:
       - name: Create Kind cluster
         run: |
           kind create cluster --name ecommerce-ci --wait 60s
+
+      - name: Verify cluster
+        run: |
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Create dev namespace
-        run: kubectl create namespace dev || true
+      # ===== DEPLOYMENT PHASE =====
+      - name: Update Helm dependencies
+        run: |
+          helm dependency update ./helm/ecommerce
 
-      - name: Deploy services with Helm
+      - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ./helm/ecommerce/values-dev.yaml \
-            --set global.targetEnvironment=dev \
-            -n dev
-        continue-on-error: true
+            --set global.targetEnvironment=dev
 
-      - name: Wait for services
+      - name: Wait for pods to be created
         run: |
-          echo "Waiting for Service Discovery..."
-          kubectl wait --for=condition=Ready pod -l app=service-discovery -n dev --timeout=180s 2>&1 || true
-          sleep 40
-          
-          echo "Waiting for all services..."
-          kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s 2>&1 || true
-          sleep 60
+          echo "Waiting for pods to be created..."
+          sleep 15
+          kubectl get pods -o wide -n dev
 
-      - name: Check deployment status
+      # ===== EUREKA REGISTRATION PHASE =====
+      - name: Wait for Service Discovery (Eureka) first
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for Service Discovery (Eureka) to be Ready ==="
+          kubectl wait --for=condition=Ready pod \
+            -l app=service-discovery \
+            -n dev \
+            --timeout=180s 2>&1 || echo "service-discovery: timeout"
+          
+          echo "Waiting 40s for Eureka to fully initialize..."
+          sleep 40
+
+      - name: Wait for Cloud Config
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for Cloud Config to be Ready ==="
+          kubectl wait --for=condition=Ready pod \
+            -l app=cloud-config \
+            -n dev \
+            --timeout=180s 2>&1 || echo "cloud-config: timeout"
+          
+          echo "Waiting 30s for Cloud Config to register with Eureka..."
+          sleep 30
+
+      - name: Wait for all other services to be Ready
+        continue-on-error: true
+        run: |
+          echo "=== Waiting for all pods to be Ready ==="
+          kubectl wait --for=condition=Ready pod --all \
+            -n dev \
+            --timeout=180s 2>&1 || echo "Some pods not ready"
+          
+          echo ""
+          echo "Waiting 90s for all services to register with Eureka..."
+          sleep 90
+
+      - name: Verify deployment status
         run: |
           echo "=== Pods Status ==="
           kubectl get pods -o wide -n dev
           echo ""
           echo "=== Services ==="
           kubectl get svc -n dev
+          echo ""
+          echo "=== Deployments ==="
+          kubectl get deployments -n dev
 
-      - name: Run health checks
+      - name: Check Eureka registry
         continue-on-error: true
         run: |
-          kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
-          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
+          echo "=== Checking Eureka Service Registry ==="
+          kubectl port-forward -n dev svc/my-ecommerce-service-discovery 8761:8761 > /dev/null 2>&1 &
+          PORT_FWD_PID=$!
+          sleep 3
           
-          echo "Testing User Service..."
-          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-user-service.dev.svc.cluster.local:8700/actuator/health || true
+          echo "Registered services in Eureka:"
+          curl -s http://localhost:8761/eureka/apps | grep -o "<n>[^<]*</n>" | sed 's/<[^>]*>//g' | sort | uniq || echo "Could not fetch Eureka registry"
           
-          echo "Testing API Gateway..."
-          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/actuator/health || true
+          kill $PORT_FWD_PID 2>/dev/null || true
 
-      - name: Cleanup
-        if: always()
-        run: kind delete cluster --name ecommerce-ci || true
-
-  # ============================================
-  # 5. SUMMARY
-  # ============================================
-  summary:
-    if: always()
-    needs: [build-services, validate-charts, deploy-and-test-ci]
-    runs-on: ubuntu-latest
-    name: Pipeline Summary
-    
-    steps:
-      - name: Print summary
+      # ===== TESTING PHASE =====
+      - name: Create test pod with curl
         run: |
-          echo "=== Pipeline Execution Summary ==="
-          echo "Build Status: ${{ needs.build-services.result }}"
-          echo "Helm Validation: ${{ needs.validate-charts.result }}"
-          echo "CI Testing: ${{ needs.deploy-and-test-ci.result }}"
-          echo "Overall Status: ${{ job.status }}"
-          echo ""
-          echo "✅ Listo para desplegar en Minikube local"
+          kubectl run test-pod \
+            -n dev \
+            --image=curlimages/curl:latest \
+            --restart=Never \
+            --command -- sleep 3600
+
+          echo "Waiting for test pod to be ready..."
+          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
+
+      - name: Test API Gateway via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing API Gateway via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
+
+      - name: Test Shipping Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Shipping Service via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
+
+      - name: Test User Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing User Service via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
+
+      - name: Test Product Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Product Service via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
+
+      - name: Test Favourite Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Favourite Service via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
+
+      - name: Test Payment Service via pod (DNS resolution)
+        continue-on-error: true
+        run: |
+          echo "=== Testing Payment Service via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
+
+      - name: Test Order Service health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Order Service health via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-order-service.dev.svc.cluster.local:8300/actuator/health
+
+      - name: Test Service Discovery health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Service Discovery health via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
+
+      - name: Test Cloud Config health via pod
+        continue-on-error: true
+        run: |
+          echo "=== Testing Cloud Config health via pod DNS ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-cloud-config.dev.svc.cluster.local:9296/actuator/health
+
+      - name: Cleanup test pod
+        if: always()
+        run: |
+          kubectl delete pod test-pod -n dev --ignore-not-found
