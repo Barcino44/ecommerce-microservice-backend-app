@@ -1,8 +1,7 @@
 name: Ecommerce CI/CD (Minikube Local)
 
 on:
-  push:
-    branches: [ main, develop ]
+  push:  
   pull_request:
     branches: [ main, develop ]
 
