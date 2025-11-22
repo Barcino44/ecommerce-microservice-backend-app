@@ -1,3 +1,4 @@
+
 global:
   namespace: prod
   replicaCount: 3

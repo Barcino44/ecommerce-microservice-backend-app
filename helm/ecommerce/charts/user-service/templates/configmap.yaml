@@ -12,10 +12,5 @@ data:
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.config.eurekaClientServiceUrlDefaultZone | quote }}
   EUREKA_INSTANCE_PREFER_IP_ADDRESS: {{ .Values.config.eurekaInstancePreferIpAddress | quote }}
 
-## Database Configuration
-  SPRING_DATASOURCE_URL: {{ .Values.database.url | quote }}
-  SPRING_DATASOURCE_DRIVER_CLASS_NAME: {{ .Values.database.driverClassName | quote }}
-  SPRING_JPA_HIBERNATE_DDL_AUTO: {{ .Values.database.ddlAuto | quote }}
-  SPRING_FLYWAY_ENABLED: {{ .Values.database.flywayEnabled | quote }}
 
 

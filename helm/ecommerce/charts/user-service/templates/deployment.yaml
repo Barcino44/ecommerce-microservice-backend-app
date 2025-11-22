@@ -56,16 +56,3 @@ spec:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
             {{- end }}
           {{- end }}
-
-          {{- if .Values.persistence.enabled }}
-          volumeMounts:
-            - name: datos-persistentes
-              mountPath: {{ .Values.persistence.mountPath }}
-          {{- end }}
-
-      {{- if .Values.persistence.enabled }}
-      volumes:
-        - name: datos-persistentes
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-{{ .Chart.Name }}-pvc
-      {{- end }}
