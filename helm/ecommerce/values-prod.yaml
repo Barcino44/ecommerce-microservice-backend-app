@@ -1,10 +1,4 @@
+
 global:
   namespace: prod
   replicaCount: 3
-  resources:
-    limits:
-      cpu: 1Gi
-      memory: 1Gi
-    requests:
-      cpu: 750m
-      memory: 512Mi

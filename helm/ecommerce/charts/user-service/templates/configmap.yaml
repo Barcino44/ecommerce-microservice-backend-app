@@ -11,3 +11,6 @@ data:
   SPRING_CONFIG_IMPORT: {{ .Values.config.springConfigImport | quote }}
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.config.eurekaClientServiceUrlDefaultZone | quote }}
   EUREKA_INSTANCE_PREFER_IP_ADDRESS: {{ .Values.config.eurekaInstancePreferIpAddress | quote }}
+
+
+

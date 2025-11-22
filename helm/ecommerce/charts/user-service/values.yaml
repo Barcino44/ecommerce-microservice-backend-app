@@ -14,3 +14,4 @@ config:
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
+
