@@ -189,8 +189,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.version.outputs.VERSION }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
         
 
   # ============================================
