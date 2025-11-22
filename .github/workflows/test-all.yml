@@ -50,7 +50,7 @@ jobs:
           else
             echo "Skipping ${{ matrix.service }} - not a Maven service"
           fi
-        continue-on-error: true
+        
 
       - name: Run tests for ${{ matrix.service }}
         run: |
@@ -58,7 +58,7 @@ jobs:
             cd ${{ matrix.service }}
             mvn test
           fi
-        continue-on-error: true
+        
 
       - name: Upload build artifact
         if: always()
@@ -66,7 +66,7 @@ jobs:
         with:
           name: ${{ matrix.service }}-build
           path: ${{ matrix.service }}/target/*.jar
-        continue-on-error: true
+        
 
   # ============================================
   # 2. VALIDATE HELM CHARTS
@@ -103,7 +103,7 @@ jobs:
               -f ./helm/ecommerce/values-dev.yaml \
               --set global.targetEnvironment=dev
           fi
-        continue-on-error: true
+        
 
       - name: Render Helm template ${{ matrix.service }}
         run: |
@@ -113,7 +113,7 @@ jobs:
               --set global.targetEnvironment=dev \
               > helm-${{ matrix.service }}-rendered.yaml
           fi
-        continue-on-error: true
+        
 
   # ============================================
   # 3. BUILD DOCKER IMAGES & PUSH
@@ -143,7 +143,7 @@ jobs:
         with:
           name: ${{ matrix.service }}-build
           path: ${{ matrix.service }}/target/
-        continue-on-error: true
+        
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -153,7 +153,7 @@ jobs:
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
-        continue-on-error: true
+        
 
       - name: Extract version
         id: version
@@ -176,7 +176,7 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-        continue-on-error: true
+        
 
   # ============================================
   # 4. DEPLOY & TEST (Kind Cluster - CI)
@@ -215,7 +215,7 @@ jobs:
             -f ./helm/ecommerce/values-dev.yaml \
             --set global.targetEnvironment=dev \
             -n dev
-        continue-on-error: true
+        
 
       - name: Wait for services
         run: |
@@ -236,7 +236,7 @@ jobs:
           kubectl get svc -n dev
 
       - name: Run health checks
-        continue-on-error: true
+        
         run: |
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
