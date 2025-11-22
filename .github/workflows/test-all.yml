@@ -65,54 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-build
-          path: ${{ matrix.service }}/target/*.jar
-
-  # ============================================
-  # 2. VALIDATE HELM CHARTS
-  # ============================================
-  validate-charts:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - cloud-config
-          - service-discovery
-          - user-service
-          - product-service
-          - payment-service
-          - shipping-service
-          - favourite-service
-          - api-gateway
-    
-    name: Validate ${{ matrix.service }} Helm Chart
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: ${{ env.HELM_VERSION }}
-
-      - name: Helm lint ${{ matrix.service }}
-        run: |
-          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm lint ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ./helm/ecommerce/values-dev.yaml \
-              --set global.targetEnvironment=dev
-          fi
-        continue-on-error: true
-
-      - name: Render Helm template ${{ matrix.service }}
-        run: |
-          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ./helm/ecommerce/values-dev.yaml \
-              --set global.targetEnvironment=dev \
-              > helm-${{ matrix.service }}-rendered.yaml
-          fi
-        continue-on-error: true
+          path: ${{ matrix.service }}/target/*.jar  
 
   # ============================================
   # 3. BUILD DOCKER IMAGES & PUSH
@@ -178,10 +131,10 @@ jobs:
           ls -lah ${{ matrix.service }}/target/
           
           if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
-            echo "❌ JAR not found"
+            echo "JAR not found"
             exit 1
           fi
-          echo "✅ JAR verified"
+          echo "JAR verified"
 
       # 4️⃣ CUARTO: Login a Docker Hub
       - name: Login to Docker Hub
@@ -199,12 +152,60 @@ jobs:
           tags: |
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.version.outputs.VERSION }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+  # ============================================
+  # 3. VALIDATE HELM CHARTS
+  # ============================================
+
+    validate-charts:
+    needs: build-docker-images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - cloud-config
+          - service-discovery
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - order-service
+          - proxy-client
+    
+    name: Validate ${{ matrix.service }} Helm Chart
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Helm lint ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm lint ./helm/ecommerce/charts/${{ matrix.service }} \
+              -f ./helm/ecommerce/values-dev.yaml \
+              --set global.targetEnvironment=dev
+          fi
+
+      - name: Render Helm template ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
+              -f ./helm/ecommerce/values-dev.yaml \
+              --set global.targetEnvironment=dev \
+              > helm-${{ matrix.service }}-rendered.yaml
+          fi
 
   # ============================================
-  # 4. DEPLOY & TEST (Kind Cluster - CI)
+  # 4. DEPLOY & TEST ALL SERVICES
   # ============================================
   deploy-and-test:
-    needs: [build-services, validate-charts]
+    needs: validate-charts
     runs-on: ubuntu-latest
     name: Deploy & Test All Services
 
