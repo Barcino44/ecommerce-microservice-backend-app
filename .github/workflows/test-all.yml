@@ -120,7 +120,7 @@ jobs:
   # ============================================
   build-docker-images:
     needs: build-services
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.event_name == 'push'  # ← Cualquier push
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -250,31 +250,6 @@ jobs:
       - name: Cleanup
         if: always()
         run: kind delete cluster --name ecommerce-ci || true
-
-  # ============================================
-  # 5. NOTIFY FOR LOCAL DEPLOYMENT
-  # ============================================
-  notify-deployment:
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    name: Notify Local Deployment Needed
-    
-    steps:
-      - name: Print deployment instructions
-        run: |
-          echo "=========================================="
-          echo "✅ CI Pipeline Passed!"
-          echo "=========================================="
-          echo ""
-          echo "Para desplegar en tu Minikube local, ejecuta:"
-          echo ""
-          echo "  chmod +x deploy.sh"
-          echo "  ./deploy.sh"
-          echo ""
-          echo "O manualmente:"
-          echo "  helm upgrade --install my-ecommerce ./helm/ecommerce -f values-dev.yaml -n dev"
-          echo ""
-          echo "=========================================="
 
   # ============================================
   # 6. SUMMARY
