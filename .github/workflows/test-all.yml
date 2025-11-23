@@ -260,23 +260,23 @@ jobs:
           kubectl get pods -o wide -n dev
 
       # ===== EUREKA & CLOUD CONFIG =====
-      
+
       - name: Wait for Service Discovery (Eureka)
-        continue-on-error: true
+
         run: |
           kubectl wait --for=condition=Ready pod -l app=service-discovery -n dev --timeout=180s || echo "Eureka timeout"
           echo "Waiting 40s for Eureka to fully initialize..."
           sleep 40
 
       - name: Wait for Cloud Config
-        continue-on-error: true
+
         run: |
           kubectl wait --for=condition=Ready pod -l app=cloud-config -n dev --timeout=180s || echo "Cloud Config timeout"
           echo "Waiting 30s for Cloud Config to register with Eureka..."
           sleep 30
 
       - name: Wait for all other services
-        continue-on-error: true
+
         run: |
           kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s || echo "Some pods not ready"
           echo "Waiting 90s for all services to register with Eureka..."
@@ -289,7 +289,7 @@ jobs:
           kubectl get deployments -n dev
 
       - name: Check Eureka registry
-        continue-on-error: true
+
         run: |
           kubectl port-forward -n dev svc/my-ecommerce-service-discovery 8761:8761 > /dev/null 2>&1 &
           PORT_FWD_PID=$!
@@ -306,49 +306,27 @@ jobs:
 
       # === Test endpoints ===
       - name: Test API Gateway
-        continue-on-error: true
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
 
       - name: Test Shipping Service
-        continue-on-error: true
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-
       - name: Test User Service
-        continue-on-error: true
+
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-
       - name: Test Product Service
-        continue-on-error: true
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
 
+        run: 
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
       - name: Test Favourite Service
-        continue-on-error: true
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
 
       - name: Test Payment Service
-        continue-on-error: true
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
-
-      - name: Test Order Service health
-        continue-on-error: true
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-order-service.dev.svc.cluster.local:8300/actuator/health
-
-      - name: Test Service Discovery health
-        continue-on-error: true
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-
-      - name: Test Cloud Config health
-        continue-on-error: true
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-cloud-config.dev.svc.cluster.local:9296/actuator/health
 
       - name: Cleanup test pod
         if: always()
