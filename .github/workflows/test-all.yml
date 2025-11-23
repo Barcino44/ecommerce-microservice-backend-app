@@ -13,10 +13,49 @@ env:
 
 jobs:
   # ============================================
+  # 0. SET IMAGE TAG AND VALUES FILE
+  # ============================================
+  set-env:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE_TAG: ${{ steps.set-tag.outputs.IMAGE_TAG }}
+      VALUES_FILE: ${{ steps.set-tag.outputs.VALUES_FILE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set image tag and values file
+        id: set-tag
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "Branch is $BRANCH_NAME"
+
+          IMAGE_TAG="dev"
+          VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+
+          if [[ "$BRANCH_NAME" == "dev" ]]; then
+            IMAGE_TAG="dev"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          elif [[ "$BRANCH_NAME" == "qa" ]]; then
+            IMAGE_TAG="qa"
+            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
+          elif [[ "$BRANCH_NAME" == "prod" ]]; then
+            IMAGE_TAG="prod"
+            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
+          else
+            IMAGE_TAG="$BRANCH_NAME"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          fi
+
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
+
+  # ============================================
   # 1. BUILD MAVEN (CI)
   # ============================================
   build-services:
     runs-on: ubuntu-latest
+    needs: set-env
     strategy:
       matrix:
         service:
@@ -30,9 +69,7 @@ jobs:
           - order-service
           - cloud-config
           - proxy-client
-    
     name: Build ${{ matrix.service }}
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -59,7 +96,6 @@ jobs:
             cd ${{ matrix.service }}
             mvn test
           fi
-        
 
       - name: Upload build artifact
         if: always()
@@ -69,10 +105,10 @@ jobs:
           path: ${{ matrix.service }}/target/*.jar  
 
   # ============================================
-  # 3. BUILD DOCKER IMAGES & PUSH
+  # 2. BUILD DOCKER IMAGES & PUSH
   # ============================================
   build-docker-images:
-    needs: build-services
+    needs: [build-services, set-env]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
@@ -88,14 +124,11 @@ jobs:
           - order-service
           - cloud-config
           - proxy-client
-    
     name: Build Docker Image - ${{ matrix.service }}
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1️⃣ PRIMERO: Extraer versión
       - name: Extract version
         id: version
         run: |
@@ -107,7 +140,6 @@ jobs:
             echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           fi
 
-      # 2️⃣ SEGUNDO: Setup Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -119,45 +151,35 @@ jobs:
 
       - name: Verify and organize JAR
         run: |
-          # El artifact se descarga como ZIP, necesita extraerse
           mkdir -p ${{ matrix.service }}/target/
-          
-          # Si está en artifact-temp, mover
           if [ -d "artifact-temp" ]; then
             mv artifact-temp/* ${{ matrix.service }}/target/ 2>/dev/null || true
             rmdir artifact-temp
           fi
-          
-          # Verificar que existe
-          echo "Listing ${{ matrix.service }}/target/:"
           ls -lah ${{ matrix.service }}/target/
-          
           if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
             echo "JAR not found"
             exit 1
           fi
-          echo "JAR verified"
 
-      # 4️⃣ CUARTO: Login a Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      # 5️⃣ QUINTO: Build and push
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: ./${{ matrix.service }}
           push: true
           tags: |
-            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.set-tag.outputs.IMAGE_TAG }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+
   # ============================================
   # 3. VALIDATE HELM CHARTS
   # ============================================
-
   validate-charts:
     needs: build-docker-images
     runs-on: ubuntu-latest
@@ -174,9 +196,7 @@ jobs:
           - order-service
           - cloud-config
           - proxy-client
-    
     name: Validate ${{ matrix.service }} Helm Chart
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -190,7 +210,7 @@ jobs:
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
             helm lint ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ./helm/ecommerce/values-dev.yaml \
+              -f ${{ needs.set-env.outputs.VALUES_FILE }} \
               --set global.targetEnvironment=dev
           fi
 
@@ -198,7 +218,7 @@ jobs:
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
             helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ./helm/ecommerce/values-dev.yaml \
+              -f ${{ needs.set-env.outputs.VALUES_FILE }} \
               --set global.targetEnvironment=dev \
               > helm-${{ matrix.service }}-rendered.yaml
           fi
@@ -207,10 +227,9 @@ jobs:
   # 4. DEPLOY & TEST ALL SERVICES
   # ============================================
   deploy-and-test:
-    needs: validate-charts
+    needs: [validate-charts, set-env]
     runs-on: ubuntu-latest
     name: Deploy & Test All Services
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -229,156 +248,8 @@ jobs:
         run: |
           kind create cluster --name ecommerce-ci --wait 60s
 
-      - name: Verify cluster
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-
-      # ===== DEPLOYMENT PHASE =====
-      - name: Update Helm dependencies
-        run: |
-          helm dependency update ./helm/ecommerce
-
       - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f ./helm/ecommerce/values-dev.yaml \
+            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
             --set global.targetEnvironment=dev
-
-      - name: Wait for pods to be created
-        run: |
-          echo "Waiting for pods to be created..."
-          sleep 15
-          kubectl get pods -o wide -n dev
-
-      # ===== EUREKA REGISTRATION PHASE =====
-      - name: Wait for Service Discovery (Eureka) first
-        
-        run: |
-          echo "=== Waiting for Service Discovery (Eureka) to be Ready ==="
-          kubectl wait --for=condition=Ready pod \
-            -l app=service-discovery \
-            -n dev \
-            --timeout=180s 2>&1 || echo "service-discovery: timeout"
-          
-          echo "Waiting 40s for Eureka to fully initialize..."
-          sleep 40
-
-      - name: Wait for Cloud Config
-        
-        run: |
-          echo "=== Waiting for Cloud Config to be Ready ==="
-          kubectl wait --for=condition=Ready pod \
-            -l app=cloud-config \
-            -n dev \
-            --timeout=180s 2>&1 || echo "cloud-config: timeout"
-          
-          echo "Waiting 30s for Cloud Config to register with Eureka..."
-          sleep 30
-
-      - name: Wait for all other services to be Ready
-        
-        run: |
-          echo "=== Waiting for all pods to be Ready ==="
-          kubectl wait --for=condition=Ready pod --all \
-            -n dev \
-            --timeout=180s 2>&1 || echo "Some pods not ready"
-          
-          echo ""
-          echo "Waiting 90s for all services to register with Eureka..."
-          sleep 90
-
-      - name: Verify deployment status
-        run: |
-          echo "=== Pods Status ==="
-          kubectl get pods -o wide -n dev
-          echo ""
-          echo "=== Services ==="
-          kubectl get svc -n dev
-          echo ""
-          echo "=== Deployments ==="
-          kubectl get deployments -n dev
-
-      - name: Check Eureka registry
-        
-        run: |
-          echo "=== Checking Eureka Service Registry ==="
-          kubectl port-forward -n dev svc/my-ecommerce-service-discovery 8761:8761 > /dev/null 2>&1 &
-          PORT_FWD_PID=$!
-          sleep 3
-          
-          echo "Registered services in Eureka:"
-          curl -s http://localhost:8761/eureka/apps | grep -o "<n>[^<]*</n>" | sed 's/<[^>]*>//g' | sort | uniq || echo "Could not fetch Eureka registry"
-          
-          kill $PORT_FWD_PID 2>/dev/null || true
-
-      # ===== TESTING PHASE =====
-      - name: Create test pod with curl
-        run: |
-          kubectl run test-pod \
-            -n dev \
-            --image=curlimages/curl:latest \
-            --restart=Never \
-            --command -- sleep 3600
-
-          echo "Waiting for test pod to be ready..."
-          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
-
-      - name: Test API Gateway via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing API Gateway via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
-
-      - name: Test Shipping Service via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing Shipping Service via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-
-      - name: Test User Service via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing User Service via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-
-      - name: Test Product Service via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing Product Service via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
-
-      - name: Test Favourite Service via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing Favourite Service via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
-
-      - name: Test Payment Service via pod (DNS resolution)
-        
-        run: |
-          echo "=== Testing Payment Service via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
-
-      - name: Test Order Service health via pod
-        
-        run: |
-          echo "=== Testing Order Service health via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-order-service.dev.svc.cluster.local:8300/actuator/health
-
-      - name: Test Service Discovery health via pod
-        
-        run: |
-          echo "=== Testing Service Discovery health via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-
-      - name: Test Cloud Config health via pod
-        
-        run: |
-          echo "=== Testing Cloud Config health via pod DNS ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-cloud-config.dev.svc.cluster.local:9296/actuator/health
-
-      - name: Cleanup test pod
-        if: always()
-        run: |
-          kubectl delete pod test-pod -n dev --ignore-not-found
