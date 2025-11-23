@@ -1,7 +1,6 @@
-replicaCount: 1
 image:
-  repository: "selimhorri/proxy-client-ecommerce-boot"
-  tag: "0.1.0"
+  repository: "barcino/proxy-client"
+  tag: "latest"
 service:
   type: ClusterIP
   port: 8900

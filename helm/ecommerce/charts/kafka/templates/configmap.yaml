@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+data:
+  server.properties: |
+    # KRaft mode configuration
+    process.roles=broker,controller
+    node.id=0
+    controller.quorum.voters=0@{{ .Release.Name }}-{{ .Chart.Name }}-0.{{ .Release.Name }}-{{ .Chart.Name }}-headless.{{ .Values.global.namespace }}.svc.cluster.local:9093
+    cluster.id={{ .Values.kraft.clusterId }}
+    # Listeners
+    listeners=PLAINTEXT://0.0.0.0:{{ .Values.service.port }},CONTROLLER://0.0.0.0:9093
+    advertised.listeners=PLAINTEXT://{{ .Release.Name }}-{{ .Chart.Name }}.{{ .Values.global.namespace }}.svc.cluster.local:{{ .Values.service.port }}
+    listener.security.protocol.map=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+    controller.listener.names=CONTROLLER
+    inter.broker.listener.name=PLAINTEXT
+    
+    # Log directories
+    log.dirs=/var/lib/kafka/data
+    
+    # Replication
+    offsets.topic.replication.factor={{ .Values.config.replicationFactor }}
+    transaction.state.log.replication.factor={{ .Values.config.replicationFactor }}
+    transaction.state.log.min.isr=1
+    default.replication.factor={{ .Values.config.replicationFactor }}
+    min.insync.replicas=1
+    
+    # Topic settings
+    num.partitions={{ .Values.config.numPartitions }}
+    auto.create.topics.enable=false
+    
+    # Log retention
+    log.retention.hours=24
+    log.segment.bytes=536870912
+    log.retention.check.interval.ms=300000
+    
+    # Performance tuning
+    num.network.threads=3
+    num.io.threads=8
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600

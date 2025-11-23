@@ -1,6 +1,6 @@
-replicaCount: 1
+
 image:
-  repository: "selimhorri/favourite-service-ecommerce-boot"
+  repository: "barcino/favourite-service"
   tag: "0.1.0"
   imagePullPolicy: IfNotPresent
 service:
