@@ -14,5 +14,13 @@ data:
   EUREKA_CLIENT_SERVICE_URL_MYZONE: {{ .Values.config.eurekaClientServiceUrlMyZone | quote }}
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.config.eurekaClientServiceUrlDefaultZone | quote }}
   EUREKA_INSTANCE_PREFER_IP_ADDRESS: {{ .Values.config.eurekaInstancePreferIpAddress | quote }}
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "my-ecommerce-kafka.kafka.svc.cluster.local:9092"
+  SPRING_KAFKA_CONSUMER_GROUP_ID: "order-service-group"
+  SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: "earliest"
+  SPRING_KAFKA_CONSUMER_ENABLE_AUTO_COMMIT: "false"
+  KAFKA_TOPIC_ORDERS: "order-events"
+  KAFKA_TOPIC_PAYMENTS: "payment-events"
+  KAFKA_TOPIC_SHIPPING: "shipping-events"
+  KAFKA_TOPIC_PRODUCTS: "product-events"
   application.yml: |
     {{ .Values.applicationConfig | nindent 4 }}

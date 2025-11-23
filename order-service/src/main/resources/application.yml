@@ -35,11 +35,54 @@ management:
   endpoint:
     health:
       show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
 
+kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    
+    consumer:
+      group-id: ${SPRING_KAFKA_CONSUMER_GROUP_ID:order-service-group}
+      auto-offset-reset: ${SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET:earliest}
+      enable-auto-commit: ${SPRING_KAFKA_CONSUMER_ENABLE_AUTO_COMMIT:false}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.selimhorri.app.dto.OrderEvent
+        session.timeout.ms: 30000
+        heartbeat.interval.ms: 10000
+        max.poll.records: 100
+        max.poll.interval.ms: 300000
+    
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        compression.type: snappy
+        linger.ms: 10
+        batch.size: 16384
+    
+    listener:
+      ack-mode: manual
+      concurrency: 3
+      type: batch
+    
+    topics:
+      orders: ${KAFKA_TOPIC_ORDERS:order-events}
+      payments: ${KAFKA_TOPIC_PAYMENTS:payment-events}
+      shipping: ${KAFKA_TOPIC_SHIPPING:shipping-events}
+      products: ${KAFKA_TOPIC_PRODUCTS:product-events}
 
-
-
-
+logging:
+  level:
+    org.apache.kafka: INFO
+    org.springframework.kafka: DEBUG
+    com.selimhorri.app: DEBUG
 
 
 

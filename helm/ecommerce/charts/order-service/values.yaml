@@ -2,8 +2,8 @@ global:
   namespace: dev
   replicaCount: 1
 image:
-  repository: "selimhorri/order-service-ecommerce-boot"
-  tag: "0.2.0"
+  repository: "order-service"
+  tag: "0.3.0"
   imagePullPolicy:  IfNotPresent
 
 service:

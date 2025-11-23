@@ -36,9 +36,15 @@ spec:
               done
               echo "✔ Eureka is UP!"
               
+              echo "⏳ Waiting for Kafka..."
+              until nc -z my-ecommerce-kafka.kafka.svc.cluster.local 9092; do
+                echo "Kafka not ready yet..."
+                sleep 5
+              done
+              echo "✔ Kafka is UP!"
+              
               echo "✔ All dependencies are ready!"
 
-              echo "✔ Dependencies UP!"
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -56,11 +62,41 @@ spec:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
             {{- end }}
           {{- end }}
+          env:
+            - name: SPRING_CONFIG_LOCATION
+              value: "classpath:/,file:/config/application.yml"
           volumeMounts:
             - name: app-config
               mountPath: /config
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /order-service/actuator/health/liveness
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /order-service/actuator/health/readiness
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
 
       volumes:
         - name: app-config
           configMap:
             name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+            items:
+              - key: application.yml
+                path: application.yml
