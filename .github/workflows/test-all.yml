@@ -213,18 +213,13 @@ jobs:
       - name: Helm lint ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm lint ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-              --set global.targetEnvironment=dev
+            helm lint "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
           fi
 
       - name: Render Helm template ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm template ${{ matrix.service }} ./helm/ecommerce/charts/${{ matrix.service }} \
-              -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-              --set global.targetEnvironment=dev \
-              > helm-${{ matrix.service }}-rendered.yaml
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev > "helm-${{ matrix.service }}-rendered.yaml"
           fi
 
   # ============================================
