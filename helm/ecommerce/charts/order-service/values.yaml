@@ -1,7 +1,6 @@
-replicaCount: 1
 image:
-  repository: "selimhorri/order-service-ecommerce-boot"
-  tag: "0.1.0"
+  repository: "barcino/order-service"
+  tag: "latest"
   imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP

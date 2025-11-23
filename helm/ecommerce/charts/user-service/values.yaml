@@ -1,8 +1,7 @@
 replicaCount: 1
 image:
-  repository: "selimhorri/user-service-ecommerce-boot"
-  tag: "0.1.0"
-  imagePullPolicy: IfNotPresent
+  repository: "barcino/user-service"
+  tag: "latest"
 service:
   type: ClusterIP
   port: 8700
