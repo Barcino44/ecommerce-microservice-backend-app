@@ -1,11 +1,11 @@
 blue:
   image:
-    repository: "barcino/cloud-config"
+    repository: "barcino/service-discovery"
     tag: "latest"
 
 green:
   image:
-    repository: "barcino/cloud-config"
+    repository: "barcino/service-discovery"
     tag: "latest"
 
 service:
