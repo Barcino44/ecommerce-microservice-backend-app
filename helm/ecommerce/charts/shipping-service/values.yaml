@@ -12,4 +12,16 @@ config:
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
+
+stable:
+  image:
+    repository: "barcino/shipping-service"
+    tag: "latest"
+  replicaCount: 1
+  
+canary:
+  image:
+    repository: "barcino/shipping-service"
+    tag: "latest"
+  replicaCount: 0  
   

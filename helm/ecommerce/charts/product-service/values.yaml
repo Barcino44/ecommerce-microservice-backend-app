@@ -14,3 +14,15 @@ config:
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
 
+stable:
+  image:
+    repository: "barcino/product-service"
+    tag: "latest"
+  replicaCount: 1
+  
+canary:
+  image:
+    repository: "barcino/product-service"
+    tag: "latest"
+  replicaCount: 0
+
