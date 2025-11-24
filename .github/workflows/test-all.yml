@@ -337,26 +337,26 @@ jobs:
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
 
-        - name: Test Shipping Service
-          run: |
-            kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-        - name: Test User Service
+      - name: Test Shipping Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
+      - name: Test User Service
 
-          run: |
-            kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-        - name: Test Product Service
-        
-          run: 
-            kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
-        - name: Test Favourite Service
-          run: |
-            kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
+      - name: Test Product Service
+      
+        run: 
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
+      - name: Test Favourite Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
 
-        - name: Test Payment Service
-          run: |
-            kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
+      - name: Test Payment Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
 
-        - name: Cleanup test pod
-          if: always()
-          run: |
-            kubectl delete pod test-pod -n dev --ignore-not-found
+      - name: Cleanup test pod
+        if: always()
+        run: |
+          kubectl delete pod test-pod -n dev --ignore-not-found
