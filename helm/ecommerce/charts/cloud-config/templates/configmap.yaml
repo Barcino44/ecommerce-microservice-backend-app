@@ -12,3 +12,4 @@ data:
   EUREKA_CLIENT_AVAILABILITYZONES_DEFAULT: {{ .Values.config.eurekaClientAvailabilityZonesDefault | quote }}
   EUREKA_CLIENT_SERVICEURL_MYZONE: {{ .Values.config.eurekaClientServiceUrlMyZone | quote }}
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.config.eurekaClientServiceUrlDefaultZone | quote }}
+  

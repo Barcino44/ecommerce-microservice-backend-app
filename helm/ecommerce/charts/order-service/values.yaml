@@ -15,11 +15,11 @@ config:
 stable:
   image:
     repository: "barcino/order-service"
-    tag: "latest"
+    tag: "0.1.0"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/order-service"
-    tag: "latest"
+    tag: "0.1.0"
   replicaCount: 0 

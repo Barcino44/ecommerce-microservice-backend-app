@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "latest"  # ← CAMBIAR
+    tag: "feature-deploystrategies"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "latest"
+    tag: "feature-deploystrategies"
     
 service:
   type: ClusterIP
