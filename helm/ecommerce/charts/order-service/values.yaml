@@ -4,9 +4,8 @@ service:
 
 # Configuración no sensible
 config:
-  springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
-  springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+  springConfigImport: "configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientRegion: default
   eurekaClientAvailabilityZonesDefault: myzone
   eurekaClientServiceUrlMyZone: "http://my-ecommerce-service-discovery:8761/eureka"

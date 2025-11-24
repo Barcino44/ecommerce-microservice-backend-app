@@ -1,3 +1,4 @@
 global:
   namespace: qa
-  replicaCount: 2
+  springProfilesActive: stage
+  replicaCount: 1

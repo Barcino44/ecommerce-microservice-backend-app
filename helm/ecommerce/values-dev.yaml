@@ -1,3 +1,4 @@
-global:
-  namespace: dev
-  replicaCount: 1
+  global:
+    namespace: dev
+    springProfilesActive: dev
+    replicaCount: 1
