@@ -251,8 +251,18 @@ jobs:
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-            --set global.targetEnvironment=dev
-            
+            --set global.targetEnvironment=dev \
+            --set api-gateway.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set product-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set user-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set payment-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set shipping-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set favourite-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set order-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set service-discovery.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set cloud-config.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
+            --set proxy-client.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }}
+                  
       - name: Wait for pods to be created
         run: |
           echo "Waiting for pods to be created..."
