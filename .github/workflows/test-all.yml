@@ -55,7 +55,7 @@ jobs:
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
 
   # ============================================
-  # 1. BUILD MAVEN (CI)
+  # 1. BUILD MAVEN (CI) - CONDITIONAL
   # ============================================
   build-services:
     runs-on: ubuntu-latest
@@ -77,8 +77,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para comparar commits
+
+      - name: Check if service changed
+        id: changed
+        run: |
+          # Para el primer commit o cuando no hay commit anterior
+          if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building ${{ matrix.service }}"
+          else
+            # Verificar si hay cambios en el servicio actual
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping"
+            fi
+          fi
 
       - name: Set up JDK 11
+        if: steps.changed.outputs.changed == 'true'
         uses: actions/setup-java@v3
         with:
           java-version: '11'
@@ -86,6 +107,7 @@ jobs:
           cache: maven
 
       - name: Build ${{ matrix.service }}
+        if: steps.changed.outputs.changed == 'true'
         run: |
           if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
             cd ${{ matrix.service }}
@@ -95,6 +117,7 @@ jobs:
           fi
 
       - name: Run tests for ${{ matrix.service }}
+        if: steps.changed.outputs.changed == 'true'
         run: |
           if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
             cd ${{ matrix.service }}
@@ -102,14 +125,14 @@ jobs:
           fi
 
       - name: Upload build artifact
-        if: always()
+        if: steps.changed.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-build
           path: ${{ matrix.service }}/target/*.jar  
 
   # ============================================
-  # 2. BUILD DOCKER IMAGES & PUSH
+  # 2. BUILD DOCKER IMAGES & PUSH - CONDITIONAL
   # ============================================
   build-docker-images:
     needs: [build-services, set-env]
@@ -132,8 +155,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if service changed
+        id: changed
+        run: |
+          # Para el primer commit o cuando no hay commit anterior
+          if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building Docker image for ${{ matrix.service }}"
+          else
+            # Verificar si hay cambios en el servicio actual
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes, will build Docker image"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping Docker build"
+            fi
+          fi
 
       - name: Extract version
+        if: steps.changed.outputs.changed == 'true'
         id: version
         run: |
           if [ -f "${{ matrix.service }}/pom.xml" ]; then
@@ -145,15 +189,18 @@ jobs:
           fi
 
       - name: Set up Docker Buildx
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/setup-buildx-action@v2
 
       - name: Download build artifact
+        if: steps.changed.outputs.changed == 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.service }}-build
           path: ./${{ matrix.service }}/target/
 
       - name: Verify and organize JAR
+        if: steps.changed.outputs.changed == 'true'
         run: |
           mkdir -p ${{ matrix.service }}/target/
           if [ -d "artifact-temp" ]; then
@@ -167,12 +214,14 @@ jobs:
           fi
 
       - name: Login to Docker Hub
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/login-action@v2
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/build-push-action@v4
         with:
           context: ./${{ matrix.service }}
@@ -249,11 +298,9 @@ jobs:
 
       - name: Helm deploy ecommerce
         run: |
-      - name: Helm deploy ecommerce
-        run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-            --set global.targetEnvironment={} \
+            --set global.targetEnvironment=dev \
             --set service-discovery.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set cloud-config.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set api-gateway.image.tag=0.1.0 \
@@ -274,21 +321,18 @@ jobs:
       # ===== EUREKA & CLOUD CONFIG =====
 
       - name: Wait for Service Discovery (Eureka)
-
         run: |
           kubectl wait --for=condition=Ready pod -l app=service-discovery -n dev --timeout=180s || echo "Eureka timeout"
           echo "Waiting 40s for Eureka to fully initialize..."
           sleep 40
 
       - name: Wait for Cloud Config
-
         run: |
           kubectl wait --for=condition=Ready pod -l app=cloud-config -n dev --timeout=180s || echo "Cloud Config timeout"
           echo "Waiting 30s for Cloud Config to register with Eureka..."
           sleep 30
 
       - name: Wait for all other services
-
         run: |
           kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s || echo "Some pods not ready"
           echo "Waiting 90s for all services to register with Eureka..."
@@ -331,6 +375,12 @@ jobs:
         run: |
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
+          
+          echo "=== Test Eureka Health ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
+          
+          echo "=== Test Eureka Registry ==="
+          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
 
       # === Test endpoints ===
       - name: Test API Gateway
@@ -340,13 +390,15 @@ jobs:
       - name: Test Shipping Service
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-      - name: Test User Service
 
+      - name: Test User Service
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
+
       - name: Test Product Service
-        run: 
+        run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
+
       - name: Test Favourite Service
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
