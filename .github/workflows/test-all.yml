@@ -292,7 +292,7 @@ jobs:
         run: |
           kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s || echo "Some pods not ready"
           echo "Waiting 90s for all services to register with Eureka..."
-          sleep 900
+          sleep 90
 
       - name: Verify deployment status
         run: |
@@ -331,7 +331,7 @@ jobs:
         run: |
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
-          
+
       # === Test endpoints ===
       - name: Test API Gateway
         run: |
@@ -345,7 +345,6 @@ jobs:
         run: |
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
       - name: Test Product Service
-      
         run: 
           kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
       - name: Test Favourite Service
