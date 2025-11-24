@@ -5,7 +5,10 @@ image:
 service:
   type: ClusterIP
   port: 8700
-
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 # Configuración no sensible
 config:
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"

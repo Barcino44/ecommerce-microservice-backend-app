@@ -1,6 +1,10 @@
 image:
   repository: "barcino/proxy-client"
   tag: "latest"
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 service:
   type: ClusterIP
   port: 8900

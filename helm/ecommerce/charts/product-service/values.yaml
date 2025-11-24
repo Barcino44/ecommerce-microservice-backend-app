@@ -2,6 +2,10 @@ image:
   repository: "barcino/product-service"
   tag: "latest"
   imagePullPolicy: IfNotPresent
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 service:
   type: ClusterIP
   port: 8500
