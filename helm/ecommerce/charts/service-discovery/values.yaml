@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/service-discovery"
-    tag: "latest"
+    tag: "feature-deploystrategies"
 
 green:
   image:
     repository: "barcino/service-discovery"
-    tag: "latest"
+    tag: "feature-deploystrategies"
 serviceAccount:
   create: true
   automount: false
