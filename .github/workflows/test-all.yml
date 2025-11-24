@@ -326,6 +326,24 @@ jobs:
           echo "=== Test Eureka Registry ==="
           kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
 
+          echo "=== API GATEWAY LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-api-gateway --tail=50 || echo "No API Gateway pods"
+          
+          echo "=== PRODUCT SERVICE LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-product-service --tail=50 || echo "No Product Service pods"
+          
+          echo "=== USER SERVICE LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-user-service --tail=50 || echo "No User Service pods"
+          
+          echo "=== SHIPPING SERVICE LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-shipping-service --tail=50 || echo "No Shipping Service pods"
+          
+          echo "=== PAYMENT SERVICE LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-payment-service --tail=50 || echo "No Payment Service pods"
+          
+          echo "=== FAVOURITE SERVICE LOGS ==="
+          kubectl logs -n dev -l app=my-ecommerce-favourite-service --tail=50 || echo "No Favourite Service pods"
+
       # === Test endpoints ===
       - name: Test API Gateway
         run: |
