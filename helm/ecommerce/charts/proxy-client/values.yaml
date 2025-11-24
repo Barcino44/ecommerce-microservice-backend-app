@@ -11,11 +11,11 @@ config:
 stable:
   image:
     repository: "barcino/proxy-client"
-    tag: "centralized-confi"
+    tag: "feature-deploystrategies"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/proxy-client"
-    tag: "centralized-confi"
+    tag: "feature-deploystrategies"
   replicaCount: 0 

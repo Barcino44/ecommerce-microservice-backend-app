@@ -28,12 +28,20 @@ ingress:
 stable:
   image:
     repository: "barcino/api-gateway"
+<<<<<<< HEAD
     tag: "centralized-confi"
+=======
+    tag: "feature-deploystrategies"
+>>>>>>> feature/deployStrategies
   replicaCount: 2
   
 canary:
   image:
     repository: "barcino/api-gateway"
+<<<<<<< HEAD
     tag: "centralized-confi"
+=======
+    tag: "feature-deploystrategies"
+>>>>>>> feature/deployStrategies
   replicaCount: 1
 

@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "centralized-confi"  # ← CAMBIAR
+    tag: "1.1.1"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "centralized-confi"
+    tag: "1.1.1"
     
 service:
   type: ClusterIP
