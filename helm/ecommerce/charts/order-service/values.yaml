@@ -3,7 +3,7 @@ global:
   replicaCount: 1
 image:
   repository: "order-service"
-  tag: "0.3.0"
+  tag: "latest"
   imagePullPolicy:  IfNotPresent
 
 service:

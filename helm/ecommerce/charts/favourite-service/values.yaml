@@ -1,7 +1,7 @@
 
 image:
   repository: "barcino/favourite-service"
-  tag: "0.1.0"
+  tag: "latest"
   imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP
