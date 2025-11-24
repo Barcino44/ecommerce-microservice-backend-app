@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "1.1.1"
+    tag: "feature-deploystrategies"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "1.1.1"
+    tag: "feature-deploystrategies"
     
 service:
   type: ClusterIP
