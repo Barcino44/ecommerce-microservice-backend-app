@@ -253,7 +253,7 @@ jobs:
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-            --set global.targetEnvironment=dev \
+            --set global.targetEnvironment={} \
             --set service-discovery.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set cloud-config.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set api-gateway.image.tag=0.1.0 \
@@ -332,3 +332,31 @@ jobs:
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
           
+      # === Test endpoints ===
+      - name: Test API Gateway
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
+
+      - name: Test Shipping Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
+      - name: Test User Service
+
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
+      - name: Test Product Service
+      
+        run: 
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
+      - name: Test Favourite Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
+
+      - name: Test Payment Service
+        run: |
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
+
+      - name: Cleanup test pod
+        if: always()
+        run: |
+          kubectl delete pod test-pod -n dev --ignore-not-found

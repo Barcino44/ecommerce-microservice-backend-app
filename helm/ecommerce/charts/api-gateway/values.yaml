@@ -29,6 +29,7 @@ stable:
   image:
     repository: "barcino/api-gateway"
     tag: "0.1.0"
+    imagePullPolicy: always
   replicaCount: 1
   
 canary:
