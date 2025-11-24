@@ -288,7 +288,7 @@ jobs:
           kubectl get svc -n dev
           kubectl get deployments -n dev
           
-          - name: Debug Eureka Server
+      - name: Debug Eureka Server
         run: |
           echo "=== Eureka Server Pods ==="
           kubectl get pods -n dev -l app=my-ecommerce-service-discovery
