@@ -12,3 +12,16 @@ spec:
       protocol: TCP
       port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.port }}
+
+stable:
+  image:
+    repository: "barcino/favourite-service"
+    tag: "latest"
+  replicaCount: 2
+  
+canary:
+  image:
+    repository: "barcino/favourite-service"
+    tag: "latest"
+  replicaCount: 1  
+

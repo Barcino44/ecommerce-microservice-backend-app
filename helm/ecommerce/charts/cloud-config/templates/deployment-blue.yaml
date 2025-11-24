@@ -1,24 +1,27 @@
+{{- $active := .Values.deploymentStrategy.active}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-{{ .Chart.Name }}
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-blue
   namespace: {{ .Values.global.namespace }}
   labels:
     app: {{ .Chart.Name }}
+    color: blue
 spec:
-  replicas: {{.Values.global.replicaCount }}
+  replicas: {{ if eq $active "blue" }}{{ .Values.global.replicaCount }}{{ else }}0{{ end }}
   selector:
     matchLabels:
       app: {{ .Chart.Name }}
+      color: blue
   template:
     metadata:
       labels:
         app: {{ .Chart.Name }}
+        color: blue
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+          image: "{{ .Values.blue.image.repository }}:{{ .Values.blue.image.tag }}"
           ports:
             - containerPort: {{ .Values.service.port }}
           {{- if or .Values.config .Values.secrets }}

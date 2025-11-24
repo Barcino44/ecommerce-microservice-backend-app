@@ -1,18 +1,25 @@
-replicaCount: 1
-image:
-  repository: "barcino/cloud-config"
-  tag: "latest"
-  imagePullPolicy: IfNotPresent
+blue:
+  image:
+    repository: "barcino/cloud-config"
+    tag: "latest"  # ← CAMBIAR
+
+green:
+  image:
+    repository: "barcino/cloud-config"
+    tag: "latest"
+    
 service:
   type: ClusterIP
   port: 9296
 
 # Configuración no sensible
 config:
-  springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   eurekaClientRegion: default
   eurekaClientAvailabilityZonesDefault: myzone
   eurekaClientServiceUrlMyZone: "http://my-ecommerce-service-discovery:8761/eureka"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka"
 
+deploymentStrategy:
+  type: blue-green
+  active: blue 

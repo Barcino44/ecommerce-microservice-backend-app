@@ -1,20 +1,11 @@
-global:
-  namespace: dev
-  replicaCount: 1
-image:
-  repository: "order-service"
-  tag: "latest"
-  imagePullPolicy:  IfNotPresent
-
 service:
   type: ClusterIP
   port: 8300
 
 # Configuración no sensible
 config:
-  springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
-  springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+  springConfigImport: "configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientRegion: default
   eurekaClientAvailabilityZonesDefault: myzone
   eurekaClientServiceUrlMyZone: "http://my-ecommerce-service-discovery:8761/eureka"
@@ -100,3 +91,15 @@ applicationConfig: |
       producer:
         acks: all
         retries: 5
+
+stable:
+  image:
+    repository: "barcino/order-service"
+    tag: "latest"
+  replicaCount: 1
+  
+canary:
+  image:
+    repository: "barcino/order-service"
+    tag: "latest"
+  replicaCount: 0 

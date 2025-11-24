@@ -7,6 +7,7 @@ spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
   selector:
     app: {{ .Chart.Name }}
+    color: {{ .Values.deploymentStrategy.active }}
   ports:
     - name: http
       protocol: TCP

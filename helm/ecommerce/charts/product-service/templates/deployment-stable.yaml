@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-stable
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+    version: stable
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.stable.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      version: stable
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        version: stable
+        release: {{ .Release.Name }}
+    spec:
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "⏳ Waiting for Cloud Config..."
+              until wget --spider -q http://{{ .Release.Name }}-cloud-config:9296/actuator/health 2>/dev/null; do
+                echo "Cloud Config not ready yet..."
+                sleep 5
+              done
+              echo "✔ Cloud Config is UP!"
+
+              echo "⏳ Waiting for Service Discovery..."
+              until wget --spider -q http://{{ .Release.Name }}-service-discovery:8761/actuator/health 2>/dev/null; do
+                echo "Service Discovery not ready yet..."
+                sleep 5
+              done
+              echo "✔ Service Discovery is UP!"
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
+          imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
