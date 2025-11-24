@@ -1,11 +1,11 @@
 blue:
   image:
-    repository: "barcino/cloud-config-server"
+    repository: "barcino/cloud-config"
     tag: "latest"  # ← CAMBIAR
 
 green:
   image:
-    repository: "barcino/cloud-config-server"
+    repository: "barcino/cloud-config"
     tag: "latest"
     
 service:
