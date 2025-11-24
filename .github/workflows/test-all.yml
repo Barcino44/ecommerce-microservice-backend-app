@@ -287,17 +287,44 @@ jobs:
           kubectl get pods -o wide -n dev
           kubectl get svc -n dev
           kubectl get deployments -n dev
-
-      - name: Check Eureka registry
-
+          
+          - name: Debug Eureka Server
         run: |
-          kubectl port-forward -n dev svc/my-ecommerce-service-discovery 8761:8761 > /dev/null 2>&1 &
-          PORT_FWD_PID=$!
-          sleep 3
-          echo "Registered services in Eureka:"
-          curl -s http://localhost:8761/eureka/apps | grep -o "<n>[^<]*</n>" | sed 's/<[^>]*>//g' | sort | uniq || echo "Could not fetch Eureka registry"
-          kill $PORT_FWD_PID 2>/dev/null || true
-          kubectl logs -n dev deployment/my-ecommerce-service-discovery
+          echo "=== Eureka Server Pods ==="
+          kubectl get pods -n dev -l app=my-ecommerce-service-discovery
+          
+          echo "=== Eureka Server Logs ==="
+          kubectl logs -n dev -l app=my-ecommerce-service-discovery --tail=50
+          
+          echo "=== Eureka Server Service ==="
+          kubectl get svc -n dev my-ecommerce-service-discovery
+
+      - name: Debug API Gateway Connection to Eureka
+        run: |
+          echo "=== API Gateway Pods ==="
+          kubectl get pods -n dev -l app=my-ecommerce-api-gateway
+          
+          echo "=== API Gateway Logs (buscar errores de Eureka) ==="
+          kubectl logs -n dev -l app=my-ecommerce-api-gateway --tail=100 | grep -i eureka || echo "No Eureka logs found"
+
+      - name: Debug All Services
+        run: |
+          echo "=== All Pods in dev namespace ==="
+          kubectl get pods -n dev -o wide
+          
+          echo "=== All Services in dev namespace ==="
+          kubectl get svc -n dev
+
+      - name: Test Eureka from test pod
+        run: |
+          kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
+          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
+          
+          echo "=== Test Eureka Health ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
+          
+          echo "=== Test Eureka Registry ==="
+          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
 
       # ===== TESTING PHASE =====
       - name: Create test pod with curl
