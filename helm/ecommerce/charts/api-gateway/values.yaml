@@ -28,12 +28,12 @@ ingress:
 stable:
   image:
     repository: "barcino/api-gateway"
-    tag: "latest"
+    tag: "feature-deploystrategies"
   replicaCount: 2
   
 canary:
   image:
     repository: "barcino/api-gateway"
-    tag: "latest"
+    tag: "feature-deploystrategies"
   replicaCount: 1
 

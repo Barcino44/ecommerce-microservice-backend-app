@@ -1,7 +1,3 @@
-image:
-  repository: "barcino/product-service"
-  tag: "latest"
-  imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP
   port: 8500
@@ -16,12 +12,12 @@ config:
 stable:
   image:
     repository: "barcino/product-service"
-    tag: "latest"
+    tag: "feature-deploystrategies"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/product-service"
-    tag: "latest"
+    tag: "feature-deploystrategies"
   replicaCount: 0
 

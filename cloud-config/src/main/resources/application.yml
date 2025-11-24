@@ -1,4 +1,3 @@
-
 server:
   port: 9296
 
@@ -12,7 +11,9 @@ spring:
       server:
         git:
           uri: https://github.com/Barcino44/cloud-config-server
+          default-label: master
           clone-on-start: true
+          basedir: /tmp/config-repo
 
 resilience4j:
   circuitbreaker:
@@ -39,11 +40,3 @@ management:
   endpoint:
     health:
       show-details: always
-
-
-
-
-
-
-
-
