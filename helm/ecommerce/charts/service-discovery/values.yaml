@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/service-discovery"
-    tag: "latest"
+    tag: "centralized-confi"
 
 green:
   image:
     repository: "barcino/service-discovery"
-    tag: "latest"
+    tag: "centralized-confi"
 
 service:
   type: LoadBalancer
