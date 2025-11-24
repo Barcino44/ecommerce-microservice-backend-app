@@ -15,12 +15,12 @@ config:
 stable:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-deploystrategies"
+    tag: "0.1.0"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-deploystrategies"
+    tag: "0.1.0"
   replicaCount: 0  
   

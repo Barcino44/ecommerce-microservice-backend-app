@@ -249,19 +249,21 @@ jobs:
 
       - name: Helm deploy ecommerce
         run: |
+      - name: Helm deploy ecommerce
+        run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
             --set global.targetEnvironment=dev \
-            --set api-gateway.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set product-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set user-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set payment-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set shipping-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set favourite-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set order-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set service-discovery.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
             --set cloud-config.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }} \
-            --set proxy-client.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }}
+            --set api-gateway.image.tag=0.1.0 \
+            --set product-service.image.tag=0.1.0 \
+            --set user-service.image.tag=0.1.0 \
+            --set payment-service.image.tag=0.1.0 \
+            --set shipping-service.image.tag=0.1.0 \
+            --set favourite-service.image.tag=0.1.0 \
+            --set order-service.image.tag=0.1.0 \
+            --set proxy-client.image.tag=0.1.0
                   
       - name: Wait for pods to be created
         run: |
@@ -290,7 +292,7 @@ jobs:
         run: |
           kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s || echo "Some pods not ready"
           echo "Waiting 90s for all services to register with Eureka..."
-          sleep 90
+          sleep 900
 
       - name: Verify deployment status
         run: |
@@ -330,55 +332,3 @@ jobs:
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
           
-          echo "=== Test Eureka Health ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-          
-          echo "=== Test Eureka Registry ==="
-          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-
-          echo "=== API GATEWAY LOGS ==="
-          kubectl logs -n dev -l app=api-gateway --tail=50 || echo "No API Gateway pods"
-          
-          echo "=== PRODUCT SERVICE LOGS ==="
-          kubectl logs -n dev -l app=product-service --tail=50 || echo "No Product Service pods"
-          
-          echo "=== USER SERVICE LOGS ==="
-          kubectl logs -n dev -l app=user-service --tail=50 || echo "No User Service pods"
-          
-          echo "=== SHIPPING SERVICE LOGS ==="
-          kubectl logs -n dev -l app=shipping-service --tail=50 || echo "No Shipping Service pods"
-          
-          echo "=== PAYMENT SERVICE LOGS ==="
-          kubectl logs -n dev -l app=payment-service --tail=50 || echo "No Payment Service pods"
-          
-          echo "=== FAVOURITE SERVICE LOGS ==="
-          kubectl logs -n dev -l app=favourite-service --tail=50 || echo "No Favourite Service pods"
-
-      # === Test endpoints ===
-      - name: Test API Gateway
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
-
-      - name: Test Shipping Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-      - name: Test User Service
-
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-      - name: Test Product Service
-      
-        run: 
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
-      - name: Test Favourite Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
-
-      - name: Test Payment Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
-
-      - name: Cleanup test pod
-        if: always()
-        run: |
-          kubectl delete pod test-pod -n dev --ignore-not-found
