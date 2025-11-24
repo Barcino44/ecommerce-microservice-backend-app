@@ -1,4 +1,5 @@
 
 global:
   namespace: prod
-  replicaCount: 3
+  springProfilesActive: prod
+  replicaCount: 1

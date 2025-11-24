@@ -6,7 +6,7 @@ metadata:
   labels:
     app: {{ .Chart.Name }}
 data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.config.springProfilesActive | quote }}
+  SPRING_PROFILES_ACTIVE: {{ .Values.global.springProfilesActive | quote }}
   SPRING_ZIPKIN_BASE_URL: {{ .Values.config.springZipkinBaseUrl | quote }}
   EUREKA_CLIENT_REGION: {{ .Values.config.eurekaClientRegion | quote }}
   EUREKA_CLIENT_AVAILABILITYZONES_DEFAULT: {{ .Values.config.eurekaClientAvailabilityZonesDefault | quote }}

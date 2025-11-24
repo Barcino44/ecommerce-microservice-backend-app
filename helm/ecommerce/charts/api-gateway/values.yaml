@@ -1,15 +1,10 @@
-image:
-  repository: "barcino/api-gateway"
-  tag: "latest"
-  imagePullPolicy: IfNotPresent
 service:
   type: ClusterIP
   port: 8080
 # Configuración no sensible
 config:
-  springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
-  springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+  springConfigImport: "configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientRegion: default
   eurekaClientAvailabilityZonesDefault: myzone
   eurekaClientServiceUrlMyZone: "http://my-ecommerce-service-discovery:8761/eureka"
@@ -29,3 +24,16 @@ ingress:
           pathType: Prefix
   tls:
     enabled: true
+
+stable:
+  image:
+    repository: "barcino/api-gateway"
+    tag: "latest"
+  replicaCount: 2
+  
+canary:
+  image:
+    repository: "barcino/api-gateway"
+    tag: "latest"
+  replicaCount: 1
+

@@ -1,20 +1,19 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "latest"
+    tag: "latest"  # ← CAMBIAR
 
 green:
   image:
     repository: "barcino/cloud-config"
     tag: "latest"
-
+    
 service:
   type: ClusterIP
   port: 9296
 
 # Configuración no sensible
 config:
-  springProfilesActive: dev
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   eurekaClientRegion: default
   eurekaClientAvailabilityZonesDefault: myzone
