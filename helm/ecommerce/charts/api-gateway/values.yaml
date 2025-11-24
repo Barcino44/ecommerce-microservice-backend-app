@@ -29,11 +29,11 @@ stable:
   image:
     repository: "barcino/api-gateway"
     tag: "feature-deploystrategies"
-  replicaCount: 2
+  replicaCount: 1
   
 canary:
   image:
     repository: "barcino/api-gateway"
     tag: "feature-deploystrategies"
-  replicaCount: 1
+  replicaCount: 0
 
