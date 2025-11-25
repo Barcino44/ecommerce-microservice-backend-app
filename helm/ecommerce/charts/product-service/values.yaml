@@ -12,12 +12,12 @@ config:
 stable:
   image:
     repository: "barcino/product-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/product-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 0
 

@@ -54,12 +54,12 @@ spec:
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials-user
+                  name: {{.Chart.Name}}-db-credentials
                   key: DB_USER
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials-user
+                  name: {{.Chart.Name}}-db-credentials
                   key: DB_PASSWORD
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:mysql://{{ .Chart.Name }}-db:3306/{{ .Chart.Name }}_db"

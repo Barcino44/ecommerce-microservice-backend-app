@@ -3,19 +3,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-db-deployment
+  name: {{.Chart.Name}}-db
   namespace: {{ .Values.global.namespace }}
   labels:
-    app: payment-db
+    app: {{.Chart.Name}}-db
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-db
+      app: {{.Chart.Name}}-db
   template:
     metadata:
       labels:
-        app: payment-db
+        app: {{.Chart.Name}}-db
     spec:
       containers:
       - name: mysql
@@ -24,28 +24,28 @@ spec:
         - containerPort: 3306
         env:
         - name: MYSQL_DATABASE
-          value: "payment_db"
+          value: {{.Chart.Name}}_db
         - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
-              name: db-credentials-payment
+              name: {{.Chart.Name}}-db-credentials
               key: DB_USER
         - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: db-credentials-payment
+              name: {{.Chart.Name}}-db-credentials
               key: DB_PASSWORD
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: db-credentials-payment
+              name: {{.Chart.Name}}-db-credentials
               key: DB_PASSWORD
         volumeMounts:
-        - name: db-storage
+        - name: {{.Chart.Name}}-db-storage
           mountPath: /var/lib/mysql
           subPath: payment
       volumes:
-      - name: db-storage
+      - name: {{.Chart.Name}}-db-storage
         persistentVolumeClaim:
-          claimName: payment-db-pvc
+          claimName: {{.Chart.Name}}-db-pvc
 {{- end }}

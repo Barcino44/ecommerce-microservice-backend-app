@@ -16,11 +16,11 @@ config:
 stable:
   image:
     repository: "barcino/favourite-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/favourite-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 0  
