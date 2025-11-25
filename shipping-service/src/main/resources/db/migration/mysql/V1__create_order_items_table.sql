@@ -1,4 +1,3 @@
-
 CREATE TABLE order_items (
     product_id INT NOT NULL,
     order_id INT NOT NULL,
