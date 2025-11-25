@@ -1,0 +1,52 @@
+{{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Chart.Name}}-db
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{.Chart.Name}}-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Chart.Name}}-db
+  template:
+    metadata:
+      labels:
+        app: {{.Chart.Name}}-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_DATABASE
+          value: {{.Chart.Name}}_db
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{.Chart.Name}}-db-credentials
+              key: DB_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{.Chart.Name}}-db-credentials
+              key: DB_PASSWORD
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{.Chart.Name}}-db-credentials
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: {{.Chart.Name}}-db-storage
+          mountPath: /var/lib/mysql
+          subPath: favourite
+      volumes:
+      - name: {{.Chart.Name}}-db-storage
+        persistentVolumeClaim:
+          claimName: {{.Chart.Name}}-db-pvc
+{{- end }}
+

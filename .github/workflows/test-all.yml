@@ -74,21 +74,30 @@ jobs:
           - cloud-config
           - proxy-client
     name: Build ${{ matrix.service }}
+    outputs:
+      user-service-changed: ${{ steps.set-output.outputs.user-service-changed }}
+      product-service-changed: ${{ steps.set-output.outputs.product-service-changed }}
+      payment-service-changed: ${{ steps.set-output.outputs.payment-service-changed }}
+      shipping-service-changed: ${{ steps.set-output.outputs.shipping-service-changed }}
+      favourite-service-changed: ${{ steps.set-output.outputs.favourite-service-changed }}
+      api-gateway-changed: ${{ steps.set-output.outputs.api-gateway-changed }}
+      service-discovery-changed: ${{ steps.set-output.outputs.service-discovery-changed }}
+      order-service-changed: ${{ steps.set-output.outputs.order-service-changed }}
+      cloud-config-changed: ${{ steps.set-output.outputs.cloud-config-changed }}
+      proxy-client-changed: ${{ steps.set-output.outputs.proxy-client-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Necesario para comparar commits
+          fetch-depth: 0
 
       - name: Check if service changed
         id: changed
         run: |
-          # Para el primer commit o cuando no hay commit anterior
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "✅ First commit or no previous commit, building ${{ matrix.service }}"
           else
-            # Verificar si hay cambios en el servicio actual
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
               echo "changed=true" >> $GITHUB_OUTPUT
               echo "✅ ${{ matrix.service }} has changes"
@@ -97,6 +106,13 @@ jobs:
               echo "⏭️  ${{ matrix.service }} has NO changes, skipping"
             fi
           fi
+
+      - name: Set output for changed services
+        id: set-output
+        run: |
+          SERVICE_NAME="${{ matrix.service }}"
+          CHANGED="${{ steps.changed.outputs.changed }}"
+          echo "${SERVICE_NAME}-changed=${CHANGED}" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 11
         if: steps.changed.outputs.changed == 'true'
@@ -161,12 +177,10 @@ jobs:
       - name: Check if service changed
         id: changed
         run: |
-          # Para el primer commit o cuando no hay commit anterior
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "✅ First commit or no previous commit, building Docker image for ${{ matrix.service }}"
           else
-            # Verificar si hay cambios en el servicio actual
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
               echo "changed=true" >> $GITHUB_OUTPUT
               echo "✅ ${{ matrix.service }} has changes, will build Docker image"
@@ -304,71 +318,86 @@ jobs:
         run: |
           kind create cluster --name ecommerce-ci --wait 60s
 
-      - name: Detect which services changed
+      - name: Detect which services changed and set tags
         id: detect-changes
         run: |
-          # Inicializar servicios non-core con versión estable 0.1.0
-          echo "api-gateway-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "product-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "user-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "payment-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "shipping-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "favourite-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "order-service-tag=0.1.0" >> $GITHUB_OUTPUT
-          echo "proxy-client-tag=0.1.0" >> $GITHUB_OUTPUT
+          # Tags estables por defecto
+          API_GATEWAY_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="0.1.0"
+          USER_SERVICE_TAG="0.1.0"
+          PAYMENT_SERVICE_TAG="0.1.0"
+          SHIPPING_SERVICE_TAG="0.1.0"
+          FAVOURITE_SERVICE_TAG="0.1.0"
+          ORDER_SERVICE_TAG="0.1.0"
+          PROXY_CLIENT_TAG="0.1.0"
+          SERVICE_DISCOVERY_TAG="feature-deploystrategies"
+          CLOUD_CONFIG_TAG="feature-deploystrategies"
           
-          # Servicios core con versión estable feature-deploystrategies
-          echo "service-discovery-tag=feature-deploystrategies" >> $GITHUB_OUTPUT
-          echo "cloud-config-tag=feature-deploystrategies" >> $GITHUB_OUTPUT
-          
-          # Si hay commit anterior, detectar cambios
+          # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            # Si service-discovery cambió, usar el nuevo tag
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^service-discovery/"; then
-              echo "service-discovery-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ service-discovery changed, using new tag"
+              SERVICE_DISCOVERY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ service-discovery changed, using tag: $SERVICE_DISCOVERY_TAG"
             fi
             
-            # Si cloud-config cambió, usar el nuevo tag
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^cloud-config/"; then
-              echo "cloud-config-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ cloud-config changed, using new tag"
+              CLOUD_CONFIG_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ cloud-config changed, using tag: $CLOUD_CONFIG_TAG"
             fi
             
-            # Verificar cada servicio non-core
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^api-gateway/"; then
-              echo "api-gateway-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ api-gateway changed, using new tag"
+              API_GATEWAY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ api-gateway changed, using tag: $API_GATEWAY_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^product-service/"; then
-              echo "product-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ product-service changed, using new tag"
+              PRODUCT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ product-service changed, using tag: $PRODUCT_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^user-service/"; then
-              echo "user-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ user-service changed, using new tag"
+              USER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ user-service changed, using tag: $USER_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^payment-service/"; then
-              echo "payment-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ payment-service changed, using new tag"
+              PAYMENT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ payment-service changed, using tag: $PAYMENT_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^shipping-service/"; then
-              echo "shipping-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ shipping-service changed, using new tag"
+              SHIPPING_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ shipping-service changed, using tag: $SHIPPING_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^favourite-service/"; then
-              echo "favourite-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ favourite-service changed, using new tag"
+              FAVOURITE_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ favourite-service changed, using tag: $FAVOURITE_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^order-service/"; then
-              echo "order-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ order-service changed, using new tag"
+              ORDER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ order-service changed, using tag: $ORDER_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^proxy-client/"; then
-              echo "proxy-client-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-              echo "✅ proxy-client changed, using new tag"
+              PROXY_CLIENT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ proxy-client changed, using tag: $PROXY_CLIENT_TAG"
             fi
           fi
+          
+          # Exportar todas las variables
+          echo "service-discovery-tag=$SERVICE_DISCOVERY_TAG" >> $GITHUB_OUTPUT
+          echo "cloud-config-tag=$CLOUD_CONFIG_TAG" >> $GITHUB_OUTPUT
+          echo "api-gateway-tag=$API_GATEWAY_TAG" >> $GITHUB_OUTPUT
+          echo "product-service-tag=$PRODUCT_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "user-service-tag=$USER_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "payment-service-tag=$PAYMENT_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "shipping-service-tag=$SHIPPING_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "favourite-service-tag=$FAVOURITE_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "order-service-tag=$ORDER_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "proxy-client-tag=$PROXY_CLIENT_TAG" >> $GITHUB_OUTPUT
 
       - name: Helm deploy ecommerce
         run: |

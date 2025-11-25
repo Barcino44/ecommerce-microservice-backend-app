@@ -1,6 +1,6 @@
 
 server:
-  port: 8800
+  port: 8500
 
 management:
   endpoints:
@@ -26,9 +26,10 @@ spring:
     console:
       enabled: true
       path: /h2-console
-  #flyway:
-  #  baseline-on-migrate: true
-  #  enabled: true
+      
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/h2
 
 logging:
   level:
