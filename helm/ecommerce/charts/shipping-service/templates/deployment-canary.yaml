@@ -49,3 +49,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+
+          env:
+            {{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials-shipping
+                  key: DB_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials-shipping
+                  key: DB_PASSWORD
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://{{ .Chart.Name }}-db:3306/{{ .Chart.Name }}_db"
+            - name: FLYWAY_MIGRATION_ENABLED
+              value: "true"
+            {{- end }}
+          

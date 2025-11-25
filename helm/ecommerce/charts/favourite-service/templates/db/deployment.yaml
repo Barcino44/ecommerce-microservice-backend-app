@@ -1,0 +1,52 @@
+{{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: favourite-db-deployment
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: favourite-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: favourite-db
+  template:
+    metadata:
+      labels:
+        app: favourite-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_DATABASE
+          value: "favourite_db"
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials-favourite
+              key: DB_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials-favourite
+              key: DB_PASSWORD
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials-favourite
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: db-storage
+          mountPath: /var/lib/mysql
+          subPath: favourite
+      volumes:
+      - name: db-storage
+        persistentVolumeClaim:
+          claimName: favourite-db-pvc
+{{- end }}
+
