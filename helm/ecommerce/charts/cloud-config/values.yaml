@@ -7,7 +7,10 @@ green:
   image:
     repository: "barcino/cloud-config"
     tag: "feature-deploystrategies"
-    
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}    
 service:
   type: ClusterIP
   port: 9296
@@ -23,3 +26,21 @@ config:
 deploymentStrategy:
   type: blue-green
   active: blue 
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault

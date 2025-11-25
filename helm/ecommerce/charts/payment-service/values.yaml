@@ -1,3 +1,7 @@
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 service:
   type: ClusterIP
   port: 8400
@@ -8,7 +12,23 @@ config:
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
 
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
 stable:
   image:
     repository: "barcino/payment-service"

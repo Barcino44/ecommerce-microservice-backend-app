@@ -1,13 +1,34 @@
 service:
   type: ClusterIP
   port: 8700
-
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 # Configuración no sensible
 config:
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
 
 stable:
   image:

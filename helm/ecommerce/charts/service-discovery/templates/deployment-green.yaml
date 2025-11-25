@@ -19,9 +19,32 @@ spec:
         app: {{ .Chart.Name }}
         color: green
     spec:
+      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.podSecurityContext.seccompProfile.type }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.green.image.repository }}:{{ .Values.green.image.tag }}"
+          securityContext:
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.service.port }}
           {{- if or .Values.config .Values.secrets }}
