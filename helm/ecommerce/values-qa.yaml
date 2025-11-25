@@ -2,3 +2,14 @@ global:
   namespace: qa
   springProfilesActive: stage
   replicaCount: 1
+  metadata:
+    name: qa
+    labels:
+      environment: qa
+      managed-by: helm
+      pod-security.kubernetes.io/enforce: "baseline"
+      pod-security.kubernetes.io/enforce-version: "latest"
+      pod-security.kubernetes.io/audit: "restricted"
+      pod-security.kubernetes.io/warn: "restricted"
+    annotations:
+      description: "QA/Staging environment for ecommerce microservices"

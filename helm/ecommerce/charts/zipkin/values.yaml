@@ -14,3 +14,21 @@ serviceAccount:
 config:
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
   springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
