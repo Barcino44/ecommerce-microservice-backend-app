@@ -1,3 +1,7 @@
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
 service:
   type: ClusterIP
   port: 8500

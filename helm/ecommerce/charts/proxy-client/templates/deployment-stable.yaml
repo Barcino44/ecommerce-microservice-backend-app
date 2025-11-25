@@ -20,6 +20,7 @@ spec:
         version: stable
         release: {{ .Release.Name }}
     spec:
+      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
       initContainers:
         - name: wait-for-dependencies
           image: busybox:1.36
