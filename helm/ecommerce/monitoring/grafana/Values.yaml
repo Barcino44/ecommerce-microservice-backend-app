@@ -1,0 +1,70 @@
+image:
+  repository: "grafana/grafana"
+  tag: "10.2.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 3000
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 472
+  fsGroup: 472
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+
+admin:
+  user: admin
+  password: admin123 
+
+# Datasources
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://my-ecommerce-prometheus:9090
+    isDefault: true
+    editable: true
+
+# Persistent Volume
+persistence:
+  enabled: true
+  storageClass: "standard"
+  accessMode: ReadWriteOnce
+  size: 5Gi
+
+# Recursos
+resources:
+  limits:
+    cpu: 300m
+    memory: 512Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+
+# Dashboards predefinidos
+dashboards:
+  enabled: true
+  
+# Plugins adicionales
+plugins:
+  - grafana-piechart-panel
+  - grafana-clock-panel

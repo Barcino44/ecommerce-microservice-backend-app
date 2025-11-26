@@ -7,7 +7,12 @@ management:
     web:
       exposure:
         include: "*"
-
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
 logging:
   file:
     name: src/main/resources/script/stage_log.log

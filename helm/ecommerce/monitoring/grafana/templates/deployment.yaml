@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.podSecurityContext.seccompProfile.type }}
+      {{- end }}
+      initContainers:
+        - name: init-dashboards
+          image: busybox:1.36
+          securityContext:
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /dashboards/springboot
+              cp /tmp/dashboards/* /dashboards/springboot/ || true
+          volumeMounts:
+            - name: dashboard-springboot
+              mountPath: /tmp/dashboards
+            - name: dashboards-storage
+              mountPath: /dashboards
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.admin.user }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.admin.password }}
+            {{- if .Values.plugins }}
+            - name: GF_INSTALL_PLUGINS
+              value: {{ join "," .Values.plugins }}
+            {{- end }}
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/grafana/grafana.ini
+              subPath: grafana.ini
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            {{- if .Values.dashboards.enabled }}
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards-storage
+              mountPath: /var/lib/grafana/dashboards
+            {{- end }}
+            - name: storage
+              mountPath: /var/lib/grafana
+            - name: tmp
+              mountPath: /tmp
+            - name: provisioning                      
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning                           
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+        - name: datasources
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-datasources
+        {{- if .Values.dashboards.enabled }}
+        - name: dashboards-provider
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-dashboards-provider
+        - name: dashboard-springboot
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-dashboard-springboot
+        - name: dashboards-storage
+          emptyDir: {}
+        {{- end }}
+        - name: storage
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-{{ .Chart.Name }}-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: provisioning                             
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-provisioning
+        - name: dashboards-files
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-dashboards

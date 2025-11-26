@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-provisioning
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+data:
+  datasources.yaml: |
+{{ .Files.Get "files/provisioning/datasources.yaml" | indent 4 }}
+  dashboards.yaml: |
+{{ .Files.Get "provisioning/dashboards.yaml" | indent 4 }}

@@ -1,0 +1,15 @@
+  global:
+    namespace: dev
+    springProfilesActive: dev
+    replicaCount: 1
+    metadata:
+      name: dev
+      labels:
+        environment: dev
+        managed-by: helm
+        pod-security.kubernetes.io/enforce: "baseline"
+        pod-security.kubernetes.io/enforce-version: "latest"
+        pod-security.kubernetes.io/audit: "baseline"
+        pod-security.kubernetes.io/warn: "baseline"
+      annotations:
+        description: "Development environment for ecommerce microservices"

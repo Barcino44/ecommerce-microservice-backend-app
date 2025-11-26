@@ -6,8 +6,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
-
+         include: "*"
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+  
 logging:
   file:
     name: src/main/resources/script/prod_log.log
