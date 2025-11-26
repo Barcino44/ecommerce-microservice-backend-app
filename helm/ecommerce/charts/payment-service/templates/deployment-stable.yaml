@@ -59,10 +59,18 @@ spec:
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
           securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+
             capabilities:
-              drop: ["ALL"]
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.service.port }}
           envFrom:
