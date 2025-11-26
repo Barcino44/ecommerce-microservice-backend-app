@@ -9,7 +9,7 @@ service:
 # Configuración no sensible
 config:
   springZipkinBaseUrl: "http://my-ecommerce-zipkin:9411"
-  springConfigImport: "configserver:http://my-ecommerce-cloud-config:9296/"
+  springConfigImport: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   eurekaClientServiceUrlDefaultZone: "http://my-ecommerce-service-discovery:8761/eureka/"
   eurekaInstancePreferIpAddress: "true"
 podSecurityContext:
@@ -23,7 +23,7 @@ podSecurityContext:
 containerSecurityContext:
   enabled: true
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
   capabilities:
     drop:
       - ALL
@@ -32,11 +32,11 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/payment-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/payment-service"
-    tag: "0.1.0"
+    tag: "feature-db"
   replicaCount: 0

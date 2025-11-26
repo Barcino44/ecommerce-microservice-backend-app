@@ -1,0 +1,13 @@
+{{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Chart.Name}}-db
+  namespace: {{ .Values.global.namespace }}
+spec:
+  selector:
+    app: {{.Chart.Name}}-db
+  ports:
+  - port: 3306
+  
+  {{- end }}
