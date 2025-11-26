@@ -32,6 +32,20 @@ spec:
       initContainers:
         - name: wait-for-dependencies
           image: busybox:1.36
+          securityContext:
+          {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
           command:
             - sh
             - -c
