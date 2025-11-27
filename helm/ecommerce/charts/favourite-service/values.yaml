@@ -37,11 +37,11 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/favourite-service"
-    tag: "feature-db"
+    tag: "feature-sealedsecret"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/favourite-service"
-    tag: "feature-db"
+    tag: "feature-sealedsecret"
   replicaCount: 0  
