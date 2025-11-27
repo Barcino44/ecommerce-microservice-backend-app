@@ -330,8 +330,8 @@ jobs:
           FAVOURITE_SERVICE_TAG="0.1.0"
           ORDER_SERVICE_TAG="0.1.0"
           PROXY_CLIENT_TAG="0.1.0"
-          SERVICE_DISCOVERY_TAG="feature-deploystrategies"
-          CLOUD_CONFIG_TAG="feature-deploystrategies"
+          SERVICE_DISCOVERY_TAG="feature-db"
+          CLOUD_CONFIG_TAG="feature-db"
           
           # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
