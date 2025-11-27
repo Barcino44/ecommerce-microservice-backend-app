@@ -238,12 +238,12 @@ jobs:
           severity: 'HIGH,CRITICAL'
 
   # ============================================
-  # 3. VALIDATE HELM CHARTS
+  # 3. VALIDATE HELMFILE
   # ============================================
-  validate-charts:
+  validate-helmfile:
     needs: [build-docker-images, set-env]
     runs-on: ubuntu-latest
-    name: Validate Helm Charts
+    name: Validate Helmfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -253,42 +253,38 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Build Helm dependencies for ecommerce chart
+      - name: Install Helmfile
         run: |
-          cd helm/ecommerce
-          helm dependency update
+          wget https://github.com/helmfile/helmfile/releases/download/v${{ env.HELMFILE_VERSION }}/helmfile_${{ env.HELMFILE_VERSION }}_linux_amd64.tar.gz
+          tar -xzf helmfile_${{ env.HELMFILE_VERSION }}_linux_amd64.tar.gz
+          sudo mv helmfile /usr/local/bin/
+          helmfile version
 
-      - name: Helm lint - ecommerce chart
+      - name: Install Helm Diff plugin
+        run: |
+          helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
+
+      - name: Helmfile lint
         run: |
           cd helm
-          helm lint ./ecommerce \
-            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml
+          helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} lint
 
-      - name: Helm lint - secrets chart
+      - name: Helmfile template
         run: |
           cd helm
-          helm lint ./secrets \
-            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml || echo "Secrets lint skipped"
-
-      - name: Helm template - ecommerce chart
-        run: |
-          cd helm
-          helm template my-ecommerce ./ecommerce \
-            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml \
-            --namespace ${{ needs.set-env.outputs.ENVIRONMENT }} \
-            > ecommerce-rendered.yaml
+          helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} template > helmfile-rendered.yaml
 
       - name: Upload rendered templates
         uses: actions/upload-artifact@v4
         with:
-          name: helm-rendered-templates
-          path: helm/ecommerce-rendered.yaml
+          name: helmfile-rendered-templates
+          path: helm/helmfile-rendered.yaml
 
   # ============================================
   # 4. DEPLOY & TEST WITH HELMFILE
   # ============================================
   deploy-and-test:
-    needs: [validate-charts, set-env]
+    needs: [validate-helmfile, set-env]
     runs-on: ubuntu-latest
     name: Deploy & Test with Helmfile
     steps:
@@ -309,7 +305,7 @@ jobs:
 
       - name: Install Helm Diff plugin
         run: |
-          helm plugin install https://github.com/databus23/helm-diff
+          helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
 
       - name: Set up Kind
         uses: engineerd/setup-kind@v0.6.2
