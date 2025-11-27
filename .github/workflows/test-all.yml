@@ -74,17 +74,6 @@ jobs:
           - cloud-config
           - proxy-client
     name: Build ${{ matrix.service }}
-    outputs:
-      user-service-changed: ${{ steps.set-output.outputs.user-service-changed }}
-      product-service-changed: ${{ steps.set-output.outputs.product-service-changed }}
-      payment-service-changed: ${{ steps.set-output.outputs.payment-service-changed }}
-      shipping-service-changed: ${{ steps.set-output.outputs.shipping-service-changed }}
-      favourite-service-changed: ${{ steps.set-output.outputs.favourite-service-changed }}
-      api-gateway-changed: ${{ steps.set-output.outputs.api-gateway-changed }}
-      service-discovery-changed: ${{ steps.set-output.outputs.service-discovery-changed }}
-      order-service-changed: ${{ steps.set-output.outputs.order-service-changed }}
-      cloud-config-changed: ${{ steps.set-output.outputs.cloud-config-changed }}
-      proxy-client-changed: ${{ steps.set-output.outputs.proxy-client-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -106,13 +95,6 @@ jobs:
               echo "⏭️  ${{ matrix.service }} has NO changes, skipping"
             fi
           fi
-
-      - name: Set output for changed services
-        id: set-output
-        run: |
-          SERVICE_NAME="${{ matrix.service }}"
-          CHANGED="${{ steps.changed.outputs.changed }}"
-          echo "${SERVICE_NAME}-changed=${CHANGED}" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 11
         if: steps.changed.outputs.changed == 'true'
@@ -168,6 +150,17 @@ jobs:
           - cloud-config
           - proxy-client
     name: Build Docker Image - ${{ matrix.service }}
+    outputs:
+      user-service-changed: ${{ steps.export-changed.outputs.user-service-changed }}
+      product-service-changed: ${{ steps.export-changed.outputs.product-service-changed }}
+      payment-service-changed: ${{ steps.export-changed.outputs.payment-service-changed }}
+      shipping-service-changed: ${{ steps.export-changed.outputs.shipping-service-changed }}
+      favourite-service-changed: ${{ steps.export-changed.outputs.favourite-service-changed }}
+      api-gateway-changed: ${{ steps.export-changed.outputs.api-gateway-changed }}
+      service-discovery-changed: ${{ steps.export-changed.outputs.service-discovery-changed }}
+      order-service-changed: ${{ steps.export-changed.outputs.order-service-changed }}
+      cloud-config-changed: ${{ steps.export-changed.outputs.cloud-config-changed }}
+      proxy-client-changed: ${{ steps.export-changed.outputs.proxy-client-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -189,6 +182,13 @@ jobs:
               echo "⏭️  ${{ matrix.service }} has NO changes, skipping Docker build"
             fi
           fi
+
+      - name: Export changed status
+        id: export-changed
+        run: |
+          SERVICE_NAME="${{ matrix.service }}"
+          CHANGED="${{ steps.changed.outputs.changed }}"
+          echo "${SERVICE_NAME}-changed=${CHANGED}" >> $GITHUB_OUTPUT
 
       - name: Extract version
         if: steps.changed.outputs.changed == 'true'
@@ -245,6 +245,7 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
       
       - name: Scan Docker image with Trivy
+        if: steps.changed.outputs.changed == 'true'
         uses: aquasecurity/trivy-action@0.11.2
         with:
           image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
@@ -252,6 +253,7 @@ jobs:
           exit-code: 0
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
+
   # ============================================
   # 3. VALIDATE HELM CHARTS
   # ============================================
@@ -297,7 +299,7 @@ jobs:
   # 4. DEPLOY & TEST ALL SERVICES
   # ============================================
   deploy-and-test:
-    needs: [validate-charts, set-env]
+    needs: [validate-charts, set-env, build-docker-images]
     runs-on: ubuntu-latest
     name: Deploy & Test All Services
     steps:
@@ -318,10 +320,10 @@ jobs:
         run: |
           kind create cluster --name ecommerce-ci --wait 60s
 
-      - name: Detect which services changed and set tags
-        id: detect-changes
+      - name: Determine image tags for each service
+        id: set-tags
         run: |
-          # Tags estables por defecto
+          # Tags estables por defecto (versiones conocidas que ya existen en Docker Hub)
           API_GATEWAY_TAG="0.1.0"
           PRODUCT_SERVICE_TAG="0.1.0"
           USER_SERVICE_TAG="0.1.0"
@@ -333,58 +335,55 @@ jobs:
           SERVICE_DISCOVERY_TAG="feature-db"
           CLOUD_CONFIG_TAG="feature-db"
           
-          # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
-          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^service-discovery/"; then
-              SERVICE_DISCOVERY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ service-discovery changed, using tag: $SERVICE_DISCOVERY_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^cloud-config/"; then
-              CLOUD_CONFIG_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ cloud-config changed, using tag: $CLOUD_CONFIG_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^api-gateway/"; then
-              API_GATEWAY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ api-gateway changed, using tag: $API_GATEWAY_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^product-service/"; then
-              PRODUCT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ product-service changed, using tag: $PRODUCT_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^user-service/"; then
-              USER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ user-service changed, using tag: $USER_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^payment-service/"; then
-              PAYMENT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ payment-service changed, using tag: $PAYMENT_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^shipping-service/"; then
-              SHIPPING_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ shipping-service changed, using tag: $SHIPPING_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^favourite-service/"; then
-              FAVOURITE_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ favourite-service changed, using tag: $FAVOURITE_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^order-service/"; then
-              ORDER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ order-service changed, using tag: $ORDER_SERVICE_TAG"
-            fi
-            
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^proxy-client/"; then
-              PROXY_CLIENT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
-              echo "✅ proxy-client changed, using tag: $PROXY_CLIENT_TAG"
-            fi
+          # Si el servicio cambió en build-docker-images, usar el nuevo IMAGE_TAG
+          if [[ "${{ needs.build-docker-images.outputs.service-discovery-changed }}" == "true" ]]; then
+            SERVICE_DISCOVERY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ service-discovery changed, using NEW tag: $SERVICE_DISCOVERY_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.cloud-config-changed }}" == "true" ]]; then
+            CLOUD_CONFIG_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ cloud-config changed, using NEW tag: $CLOUD_CONFIG_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.api-gateway-changed }}" == "true" ]]; then
+            API_GATEWAY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ api-gateway changed, using NEW tag: $API_GATEWAY_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.product-service-changed }}" == "true" ]]; then
+            PRODUCT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ product-service changed, using NEW tag: $PRODUCT_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.user-service-changed }}" == "true" ]]; then
+            USER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ user-service changed, using NEW tag: $USER_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.payment-service-changed }}" == "true" ]]; then
+            PAYMENT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ payment-service changed, using NEW tag: $PAYMENT_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.shipping-service-changed }}" == "true" ]]; then
+            SHIPPING_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ shipping-service changed, using NEW tag: $SHIPPING_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.favourite-service-changed }}" == "true" ]]; then
+            FAVOURITE_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ favourite-service changed, using NEW tag: $FAVOURITE_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.order-service-changed }}" == "true" ]]; then
+            ORDER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ order-service changed, using NEW tag: $ORDER_SERVICE_TAG"
+          fi
+          
+          if [[ "${{ needs.build-docker-images.outputs.proxy-client-changed }}" == "true" ]]; then
+            PROXY_CLIENT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "✅ proxy-client changed, using NEW tag: $PROXY_CLIENT_TAG"
           fi
           
           # Exportar todas las variables
@@ -404,16 +403,16 @@ jobs:
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
             --set global.targetEnvironment=dev \
-            --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
-            --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
-            --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
-            --set product-service.image.tag=${{ steps.detect-changes.outputs.product-service-tag }} \
-            --set user-service.image.tag=${{ steps.detect-changes.outputs.user-service-tag }} \
-            --set payment-service.image.tag=${{ steps.detect-changes.outputs.payment-service-tag }} \
-            --set shipping-service.image.tag=${{ steps.detect-changes.outputs.shipping-service-tag }} \
-            --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
-            --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
-            --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }}
+            --set service-discovery.image.tag=${{ steps.set-tags.outputs.service-discovery-tag }} \
+            --set cloud-config.image.tag=${{ steps.set-tags.outputs.cloud-config-tag }} \
+            --set api-gateway.image.tag=${{ steps.set-tags.outputs.api-gateway-tag }} \
+            --set product-service.image.tag=${{ steps.set-tags.outputs.product-service-tag }} \
+            --set user-service.image.tag=${{ steps.set-tags.outputs.user-service-tag }} \
+            --set payment-service.image.tag=${{ steps.set-tags.outputs.payment-service-tag }} \
+            --set shipping-service.image.tag=${{ steps.set-tags.outputs.shipping-service-tag }} \
+            --set favourite-service.image.tag=${{ steps.set-tags.outputs.favourite-service-tag }} \
+            --set order-service.image.tag=${{ steps.set-tags.outputs.order-service-tag }} \
+            --set proxy-client.image.tag=${{ steps.set-tags.outputs.proxy-client-tag }}
                   
       - name: Wait for pods to be created
         run: |
