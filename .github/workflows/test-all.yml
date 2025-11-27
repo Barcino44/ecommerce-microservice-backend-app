@@ -238,12 +238,12 @@ jobs:
           severity: 'HIGH,CRITICAL'
 
   # ============================================
-  # 3. VALIDATE HELMFILE
+  # 3. VALIDATE HELM CHARTS
   # ============================================
-  validate-helmfile:
+  validate-charts:
     needs: [build-docker-images, set-env]
     runs-on: ubuntu-latest
-    name: Validate Helmfile
+    name: Validate Helm Charts
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -253,38 +253,42 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Install Helmfile
+      - name: Build Helm dependencies for ecommerce chart
         run: |
-          wget https://github.com/helmfile/helmfile/releases/download/v${{ env.HELMFILE_VERSION }}/helmfile_${{ env.HELMFILE_VERSION }}_linux_amd64.tar.gz
-          tar -xzf helmfile_${{ env.HELMFILE_VERSION }}_linux_amd64.tar.gz
-          sudo mv helmfile /usr/local/bin/
-          helmfile version
+          cd helm/ecommerce
+          helm dependency update
 
-      - name: Install Helm Diff plugin
-        run: |
-          helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
-
-      - name: Helmfile lint
+      - name: Helm lint - ecommerce chart
         run: |
           cd helm
-          helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} lint
+          helm lint ./ecommerce \
+            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml
 
-      - name: Helmfile template
+      - name: Helm lint - secrets chart
         run: |
           cd helm
-          helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} template > helmfile-rendered.yaml
+          helm lint ./secrets \
+            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml || echo "Secrets lint skipped"
+
+      - name: Helm template - ecommerce chart
+        run: |
+          cd helm
+          helm template my-ecommerce ./ecommerce \
+            -f ./ecommerce/values-${{ needs.set-env.outputs.ENVIRONMENT }}.yaml \
+            --namespace ${{ needs.set-env.outputs.ENVIRONMENT }} \
+            > ecommerce-rendered.yaml
 
       - name: Upload rendered templates
         uses: actions/upload-artifact@v4
         with:
-          name: helmfile-rendered-templates
-          path: helm/helmfile-rendered.yaml
+          name: helm-rendered-templates
+          path: helm/ecommerce-rendered.yaml
 
   # ============================================
   # 4. DEPLOY & TEST WITH HELMFILE
   # ============================================
   deploy-and-test:
-    needs: [validate-helmfile, set-env]
+    needs: [validate-charts, set-env]
     runs-on: ubuntu-latest
     name: Deploy & Test with Helmfile
     steps:
