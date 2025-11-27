@@ -398,7 +398,6 @@ jobs:
           cd helm
           helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} \
             --state-values-file override-tags.yaml \
-            sync --wait --wait-for-jobs
                   
       - name: Wait for pods to be created
         run: |
