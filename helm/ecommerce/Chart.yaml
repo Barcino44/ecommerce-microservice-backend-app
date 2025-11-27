@@ -4,12 +4,3 @@ description: "Umbrella Helm chart to deploy the ecommerce microservices"
 type: application
 version: 0.1.0
 appVersion: "1.0"
-dependencies:
-  - name: prometheus
-    version: 0.1.0
-    condition: prometheus.enabled
-    # Sin alias para usar configuración separada
-    
-  - name: grafana
-    version: 0.1.0
-    condition: grafana.enabled
