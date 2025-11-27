@@ -327,7 +327,7 @@ jobs:
           USER_SERVICE_TAG="0.1.0"
           PAYMENT_SERVICE_TAG="0.1.0"
           SHIPPING_SERVICE_TAG="0.1.0"
-          FAVOURITE_SERVICE_TAG="0.1.0"
+          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
           ORDER_SERVICE_TAG="0.1.0"
           PROXY_CLIENT_TAG="0.1.0"
           SERVICE_DISCOVERY_TAG="feature-db"
