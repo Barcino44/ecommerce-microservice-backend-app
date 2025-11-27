@@ -456,7 +456,7 @@ jobs:
         run: |
           cd helm
           # Obtener el namespace del values file
-          NAMESPACE= ${{ needs.set-env.outputs.ENVIRONMENT }}
+          NAMESPACE=${{ needs.set-env.outputs.ENVIRONMENT }}
           echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
           
           # Obtener el release name del my-ecommerce
