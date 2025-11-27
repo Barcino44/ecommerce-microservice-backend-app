@@ -51,16 +51,16 @@ management:
           enabled: true
           step: 1m 
           descriptions: true 
-      tags:
-        application: ${spring.application.name}
-      enable:
-        jvm: true
-        process: true
-        system: true
-        tomcat: true
-        logback: true
-        http: true
-      distribution:
+    tags:
+      application: ${spring.application.name}
+    enable:
+      jvm: true
+      process: true
+      system: true
+      tomcat: true
+      logback: true
+      http: true
+    distribution:
       percentiles-histogram:
         http.server.requests: true
       percentiles:
