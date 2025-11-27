@@ -7,6 +7,6 @@ metadata:
     app: {{ .Chart.Name }}
 data:
   datasources.yaml: |
-{{ .Files.Get "files/provisioning/datasources.yaml" | indent 4 }}
+{{ .Files.Get "provisioning/datasources.yaml" | indent 4 }}
   dashboards.yaml: |
 {{ .Files.Get "provisioning/dashboards.yaml" | indent 4 }}

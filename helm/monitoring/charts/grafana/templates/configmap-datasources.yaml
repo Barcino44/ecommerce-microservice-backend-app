@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-datasources
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    {{- range .Values.datasources }}
+      - name: {{ .name }}
+        type: {{ .type }}
+        access: {{ .access }}
+        url: {{ .url }}
+        isDefault: {{ .isDefault }}
+        editable: {{ .editable }}
+        jsonData:
+          timeInterval: "15s"
+          httpMethod: "GET"
+    {{- end }}

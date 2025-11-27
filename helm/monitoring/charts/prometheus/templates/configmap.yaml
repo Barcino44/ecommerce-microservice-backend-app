@@ -1,8 +1,3 @@
-# ============================================
-# ARCHIVO 1: prometheus/templates/configmap.yaml
-# ConfigMap con cAdvisor y Kubelet
-# ============================================
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -26,99 +21,84 @@ data:
         static_configs:
           - targets: ['localhost:9090']
 
-      # ============================================
-      # ✅ NUEVO: cAdvisor - Métricas de contenedores
-      # ============================================
       - job_name: 'kubernetes-cadvisor'
         scheme: https
-        # Configuración TLS para comunicación segura con API server
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           insecure_skip_verify: false
-        # Token de autenticación del ServiceAccount
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        
+
         kubernetes_sd_configs:
           - role: node
-        
+
         relabel_configs:
-          # Mapear labels de nodos de Kubernetes
           - action: labelmap
             regex: __meta_kubernetes_node_label_(.+)
-          
-          # Redirigir al API server de Kubernetes
+
           - target_label: __address__
             replacement: kubernetes.default.svc:443
-          
-          # Construir la ruta a las métricas de cAdvisor
+
           - source_labels: [__meta_kubernetes_node_name]
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
-          
-          # Agregar el nombre del nodo como label
+
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      # ============================================
-      # ✅ NUEVO: Kubelet - Métricas del kubelet
-      # ============================================
+
       - job_name: 'kubernetes-kubelet'
         scheme: https
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           insecure_skip_verify: false
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        
+
         kubernetes_sd_configs:
           - role: node
-        
+
         relabel_configs:
           - action: labelmap
             regex: __meta_kubernetes_node_label_(.+)
-          
+
           - target_label: __address__
             replacement: kubernetes.default.svc:443
-          
+
           - source_labels: [__meta_kubernetes_node_name]
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics
-          
+
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      # ============================================
-      # ✅ OPCIONAL: Métricas de recursos del kubelet
-      # ============================================
+      
       - job_name: 'kubernetes-kubelet-resource'
         scheme: https
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           insecure_skip_verify: false
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        
+
         kubernetes_sd_configs:
           - role: node
-        
+
         relabel_configs:
           - action: labelmap
             regex: __meta_kubernetes_node_label_(.+)
-          
+
           - target_label: __address__
             replacement: kubernetes.default.svc:443
-          
+
           - source_labels: [__meta_kubernetes_node_name]
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/resource
-          
+
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      # ============================================
-      # Scrape CROSS-NAMESPACE de microservicios
-      # ============================================
+    
       - job_name: 'spring-boot-actuator'
         kubernetes_sd_configs:
           - role: endpoints
@@ -137,19 +117,24 @@ data:
           - source_labels: [__meta_kubernetes_service_label_app]
             action: keep
             regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
+
           - source_labels: [__meta_kubernetes_endpoint_port_name]
             action: keep
             regex: http
+
           - source_labels: [__meta_kubernetes_service_name]
             target_label: service
+
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
+
           - source_labels: [__meta_kubernetes_pod_name]
             target_label: pod
+
           - target_label: __metrics_path__
             replacement: /actuator/prometheus
 
-      # Scrape de Zipkin CROSS-NAMESPACE
+     
       - job_name: 'zipkin'
         kubernetes_sd_configs:
           - role: endpoints
@@ -168,35 +153,38 @@ data:
           - source_labels: [__meta_kubernetes_service_label_app]
             action: keep
             regex: zipkin
+
           - source_labels: [__meta_kubernetes_service_name]
             target_label: service
+
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
+
           - target_label: __metrics_path__
             replacement: /prometheus
 
+      # ============================================
       # Scrape de Eureka CROSS-NAMESPACE
+      # ============================================
       - job_name: 'eureka'
         kubernetes_sd_configs:
           - role: endpoints
             namespaces:
               names:
-                {{- if .Values.config.targetNamespaces }}
-                {{- range .Values.config.targetNamespaces }}
-                - {{ . }}
-                {{- end }}
-                {{- else }}
                 - dev
                 - qa
                 - prod
-                {{- end }}
         relabel_configs:
           - source_labels: [__meta_kubernetes_service_label_app]
             action: keep
             regex: service-discovery
+
           - source_labels: [__meta_kubernetes_service_name]
             target_label: service
+
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
+
           - target_label: __metrics_path__
             replacement: /actuator/prometheus
+

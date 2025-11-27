@@ -33,13 +33,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/proxy-client"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/proxy-client"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 0 
 
 prometheus:

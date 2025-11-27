@@ -1,0 +1,675 @@
+---
+# Source: ecommerce/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+metadata:
+  name: monitoring
+  labels:
+    environment: monitoring
+    managed-by: helm
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: baseline
+  annotations:
+    description: Monitoring environment for ecommerce microservices
+---
+# Source: ecommerce/charts/grafana/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+automountServiceAccountToken: false
+---
+# Source: ecommerce/charts/prometheus/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+    release: release-name
+    component: prometheus
+automountServiceAccountToken: true
+---
+# Source: ecommerce/charts/grafana/templates/configmap-dashboards.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-grafana-dashboards
+  namespace: monitoring
+  labels:
+    app: grafana
+    grafana_dashboard: "1"
+binaryData:
+  sprintboot-metrics.json: ewogICJhbm5vdGF0aW9ucyI6IHsKICAgICJsaXN0IjogWwogICAgICB7CiAgICAgICAgImJ1aWx0SW4iOiAxLAogICAgICAgICJkYXRhc291cmNlIjogIi0tIEdyYWZhbmEgLS0iLAogICAgICAgICJlbmFibGUiOiB0cnVlLAogICAgICAgICJoaWRlIjogdHJ1ZSwKICAgICAgICAiaWNvbkNvbG9yIjogInJnYmEoMCwgMjExLCAyNTUsIDEpIiwKICAgICAgICAibmFtZSI6ICJBbm5vdGF0aW9ucyAmIEFsZXJ0cyIsCiAgICAgICAgInR5cGUiOiAiZGFzaGJvYXJkIgogICAgICB9CiAgICBdCiAgfSwKICAiZWRpdGFibGUiOiB0cnVlLAogICJnbmV0SWQiOiBudWxsLAogICJncmFwaFRvb2x0aXAiOiAxLAogICJpZCI6IG51bGwsCiAgImxpbmtzIjogW10sCiAgInBhbmVscyI6IFsKICAgIHsKICAgICAgImRhdGFzb3VyY2UiOiAiUHJvbWV0aGV1cyIsCiAgICAgICJmaWVsZENvbmZpZyI6IHsKICAgICAgICAiZGVmYXVsdHMiOiB7CiAgICAgICAgICAiY29sb3IiOiB7CiAgICAgICAgICAgICJtb2RlIjogInBhbGV0dGUtY2xhc3NpYyIKICAgICAgICAgIH0sCiAgICAgICAgICAiY3VzdG9tIjogewogICAgICAgICAgICAiYXhpc0xhYmVsIjogIlJlcXVlc3RzL3NlYyIsCiAgICAgICAgICAgICJheGlzUGxhY2VtZW50IjogImF1dG8iLAogICAgICAgICAgICAiYmFyQWxpZ25tZW50IjogMCwKICAgICAgICAgICAgImRyYXdTdHlsZSI6ICJsaW5lIiwKICAgICAgICAgICAgImZpbGxPcGFjaXR5IjogMTAsCiAgICAgICAgICAgICJncmFkaWVudE1vZGUiOiAibm9uZSIsCiAgICAgICAgICAgICJoaWRlRnJvbSI6IHsKICAgICAgICAgICAgICAidG9vbHRpcCI6IGZhbHNlLAogICAgICAgICAgICAgICJ2aXoiOiBmYWxzZSwKICAgICAgICAgICAgICAibGVnZW5kIjogZmFsc2UKICAgICAgICAgICAgfSwKICAgICAgICAgICAgImxpbmVJbnRlcnBvbGF0aW9uIjogImxpbmVhciIsCiAgICAgICAgICAgICJsaW5lV2lkdGgiOiAyLAogICAgICAgICAgICAicG9pbnRTaXplIjogNSwKICAgICAgICAgICAgInNjYWxlRGlzdHJpYnV0aW9uIjogewogICAgICAgICAgICAgICJ0eXBlIjogImxpbmVhciIKICAgICAgICAgICAgfSwKICAgICAgICAgICAgInNob3dQb2ludHMiOiAibmV2ZXIiLAogICAgICAgICAgICAic3Bhbk51bGxzIjogdHJ1ZQogICAgICAgICAgfSwKICAgICAgICAgICJtYXBwaW5ncyI6IFtdLAogICAgICAgICAgInRocmVzaG9sZHMiOiB7CiAgICAgICAgICAgICJtb2RlIjogImFic29sdXRlIiwKICAgICAgICAgICAgInN0ZXBzIjogWwogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJncmVlbiIsCiAgICAgICAgICAgICAgICAidmFsdWUiOiBudWxsCiAgICAgICAgICAgICAgfQogICAgICAgICAgICBdCiAgICAgICAgICB9LAogICAgICAgICAgInVuaXQiOiAicmVxcHMiCiAgICAgICAgfQogICAgICB9LAogICAgICAiZ3JpZFBvcyI6IHsKICAgICAgICAiaCI6IDksCiAgICAgICAgInciOiAxMiwKICAgICAgICAieCI6IDAsCiAgICAgICAgInkiOiAwCiAgICAgIH0sCiAgICAgICJpZCI6IDIsCiAgICAgICJvcHRpb25zIjogewogICAgICAgICJsZWdlbmQiOiB7CiAgICAgICAgICAiY2FsY3MiOiBbIm1lYW4iLCAibGFzdE5vdE51bGwiLCAibWF4Il0sCiAgICAgICAgICAiZGlzcGxheU1vZGUiOiAidGFibGUiLAogICAgICAgICAgInBsYWNlbWVudCI6ICJib3R0b20iCiAgICAgICAgfSwKICAgICAgICAidG9vbHRpcCI6IHsKICAgICAgICAgICJtb2RlIjogIm11bHRpIgogICAgICAgIH0KICAgICAgfSwKICAgICAgInRhcmdldHMiOiBbCiAgICAgICAgewogICAgICAgICAgImV4cHIiOiAic3VtKHJhdGUoaHR0cF9zZXJ2ZXJfcmVxdWVzdHNfc2Vjb25kc19jb3VudHtqb2I9XCJzcHJpbmctYm9vdC1hY3R1YXRvclwifVsxbV0pKSBieSAoc2VydmljZSkiLAogICAgICAgICAgImludGVydmFsIjogIiIsCiAgICAgICAgICAibGVnZW5kRm9ybWF0IjogInt7c2VydmljZX19IiwKICAgICAgICAgICJyZWZJZCI6ICJBIgogICAgICAgIH0KICAgICAgXSwKICAgICAgInRpdGxlIjogIkhUVFAgUmVxdWVzdCBSYXRlIGJ5IFNlcnZpY2UiLAogICAgICAidHlwZSI6ICJ0aW1lc2VyaWVzIgogICAgfSwKICAgIHsKICAgICAgImRhdGFzb3VyY2UiOiAiUHJvbWV0aGV1cyIsCiAgICAgICJmaWVsZENvbmZpZyI6IHsKICAgICAgICAiZGVmYXVsdHMiOiB7CiAgICAgICAgICAiY29sb3IiOiB7CiAgICAgICAgICAgICJtb2RlIjogInRocmVzaG9sZHMiCiAgICAgICAgICB9LAogICAgICAgICAgIm1hcHBpbmdzIjogW10sCiAgICAgICAgICAibWF4IjogMTAwLAogICAgICAgICAgIm1pbiI6IDAsCiAgICAgICAgICAidGhyZXNob2xkcyI6IHsKICAgICAgICAgICAgIm1vZGUiOiAiYWJzb2x1dGUiLAogICAgICAgICAgICAic3RlcHMiOiBbCiAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgImNvbG9yIjogImdyZWVuIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IG51bGwKICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJ5ZWxsb3ciLAogICAgICAgICAgICAgICAgInZhbHVlIjogNzAKICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJyZWQiLAogICAgICAgICAgICAgICAgInZhbHVlIjogOTAKICAgICAgICAgICAgICB9CiAgICAgICAgICAgIF0KICAgICAgICAgIH0sCiAgICAgICAgICAidW5pdCI6ICJwZXJjZW50IgogICAgICAgIH0KICAgICAgfSwKICAgICAgImdyaWRQb3MiOiB7CiAgICAgICAgImgiOiA5LAogICAgICAgICJ3IjogNiwKICAgICAgICAieCI6IDEyLAogICAgICAgICJ5IjogMAogICAgICB9LAogICAgICAiaWQiOiA0LAogICAgICAib3B0aW9ucyI6IHsKICAgICAgICAib3JpZW50YXRpb24iOiAiYXV0byIsCiAgICAgICAgInJlZHVjZU9wdGlvbnMiOiB7CiAgICAgICAgICAidmFsdWVzIjogZmFsc2UsCiAgICAgICAgICAiY2FsY3MiOiBbCiAgICAgICAgICAgICJsYXN0Tm90TnVsbCIKICAgICAgICAgIF0sCiAgICAgICAgICAiZmllbGRzIjogIiIKICAgICAgICB9LAogICAgICAgICJzaG93VGhyZXNob2xkTGFiZWxzIjogZmFsc2UsCiAgICAgICAgInNob3dUaHJlc2hvbGRNYXJrZXJzIjogdHJ1ZQogICAgICB9LAogICAgICAidGFyZ2V0cyI6IFsKICAgICAgICB7CiAgICAgICAgICAiZXhwciI6ICJhdmcoanZtX21lbW9yeV91c2VkX2J5dGVze2FyZWE9XCJoZWFwXCIsam9iPVwic3ByaW5nLWJvb3QtYWN0dWF0b3JcIn0gLyBqdm1fbWVtb3J5X21heF9ieXRlc3thcmVhPVwiaGVhcFwiLGpvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCJ9ICogMTAwKSIsCiAgICAgICAgICAiaW50ZXJ2YWwiOiAiIiwKICAgICAgICAgICJsZWdlbmRGb3JtYXQiOiAiSGVhcCBVc2FnZSIsCiAgICAgICAgICAicmVmSWQiOiAiQSIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ0aXRsZSI6ICJBdmVyYWdlIEpWTSBIZWFwIFVzYWdlIiwKICAgICAgInR5cGUiOiAiZ2F1Z2UiCiAgICB9LAogICAgewogICAgICAiZGF0YXNvdXJjZSI6ICJQcm9tZXRoZXVzIiwKICAgICAgImZpZWxkQ29uZmlnIjogewogICAgICAgICJkZWZhdWx0cyI6IHsKICAgICAgICAgICJjb2xvciI6IHsKICAgICAgICAgICAgIm1vZGUiOiAidGhyZXNob2xkcyIKICAgICAgICAgIH0sCiAgICAgICAgICAibWFwcGluZ3MiOiBbCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAib3B0aW9ucyI6IHsKICAgICAgICAgICAgICAgICIwIjogewogICAgICAgICAgICAgICAgICAiY29sb3IiOiAicmVkIiwKICAgICAgICAgICAgICAgICAgImluZGV4IjogMCwKICAgICAgICAgICAgICAgICAgInRleHQiOiAiRE9XTiIKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICAiMSI6IHsKICAgICAgICAgICAgICAgICAgImNvbG9yIjogImdyZWVuIiwKICAgICAgICAgICAgICAgICAgImluZGV4IjogMSwKICAgICAgICAgICAgICAgICAgInRleHQiOiAiVVAiCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAidHlwZSI6ICJ2YWx1ZSIKICAgICAgICAgICAgfQogICAgICAgICAgXSwKICAgICAgICAgICJ0aHJlc2hvbGRzIjogewogICAgICAgICAgICAibW9kZSI6ICJhYnNvbHV0ZSIsCiAgICAgICAgICAgICJzdGVwcyI6IFsKICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAiY29sb3IiOiAicmVkIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IG51bGwKICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJncmVlbiIsCiAgICAgICAgICAgICAgICAidmFsdWUiOiAxCiAgICAgICAgICAgICAgfQogICAgICAgICAgICBdCiAgICAgICAgICB9CiAgICAgICAgfQogICAgICB9LAogICAgICAiZ3JpZFBvcyI6IHsKICAgICAgICAiaCI6IDksCiAgICAgICAgInciOiA2LAogICAgICAgICJ4IjogMTgsCiAgICAgICAgInkiOiAwCiAgICAgIH0sCiAgICAgICJpZCI6IDYsCiAgICAgICJvcHRpb25zIjogewogICAgICAgICJjb2xvck1vZGUiOiAiYmFja2dyb3VuZCIsCiAgICAgICAgImdyYXBoTW9kZSI6ICJub25lIiwKICAgICAgICAianVzdGlmeU1vZGUiOiAiYXV0byIsCiAgICAgICAgIm9yaWVudGF0aW9uIjogImF1dG8iLAogICAgICAgICJyZWR1Y2VPcHRpb25zIjogewogICAgICAgICAgInZhbHVlcyI6IGZhbHNlLAogICAgICAgICAgImNhbGNzIjogWwogICAgICAgICAgICAibGFzdE5vdE51bGwiCiAgICAgICAgICBdLAogICAgICAgICAgImZpZWxkcyI6ICIiCiAgICAgICAgfSwKICAgICAgICAidGV4dE1vZGUiOiAidmFsdWVfYW5kX25hbWUiCiAgICAgIH0sCiAgICAgICJ0YXJnZXRzIjogWwogICAgICAgIHsKICAgICAgICAgICJleHByIjogInVwe2pvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCJ9IiwKICAgICAgICAgICJpbnRlcnZhbCI6ICIiLAogICAgICAgICAgImxlZ2VuZEZvcm1hdCI6ICJ7e3NlcnZpY2V9fSIsCiAgICAgICAgICAicmVmSWQiOiAiQSIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ0aXRsZSI6ICJTZXJ2aWNlcyBIZWFsdGggU3RhdHVzIiwKICAgICAgInR5cGUiOiAic3RhdCIKICAgIH0sCiAgICB7CiAgICAgICJkYXRhc291cmNlIjogIlByb21ldGhldXMiLAogICAgICAiZmllbGRDb25maWciOiB7CiAgICAgICAgImRlZmF1bHRzIjogewogICAgICAgICAgImNvbG9yIjogewogICAgICAgICAgICAibW9kZSI6ICJwYWxldHRlLWNsYXNzaWMiCiAgICAgICAgICB9LAogICAgICAgICAgImN1c3RvbSI6IHsKICAgICAgICAgICAgImF4aXNMYWJlbCI6ICJSZXNwb25zZSBUaW1lIiwKICAgICAgICAgICAgImF4aXNQbGFjZW1lbnQiOiAiYXV0byIsCiAgICAgICAgICAgICJiYXJBbGlnbm1lbnQiOiAwLAogICAgICAgICAgICAiZHJhd1N0eWxlIjogImxpbmUiLAogICAgICAgICAgICAiZmlsbE9wYWNpdHkiOiAxMCwKICAgICAgICAgICAgImdyYWRpZW50TW9kZSI6ICJvcGFjaXR5IiwKICAgICAgICAgICAgImhpZGVGcm9tIjogewogICAgICAgICAgICAgICJ0b29sdGlwIjogZmFsc2UsCiAgICAgICAgICAgICAgInZpeiI6IGZhbHNlLAogICAgICAgICAgICAgICJsZWdlbmQiOiBmYWxzZQogICAgICAgICAgICB9LAogICAgICAgICAgICAibGluZUludGVycG9sYXRpb24iOiAic21vb3RoIiwKICAgICAgICAgICAgImxpbmVXaWR0aCI6IDIsCiAgICAgICAgICAgICJwb2ludFNpemUiOiA1LAogICAgICAgICAgICAic2NhbGVEaXN0cmlidXRpb24iOiB7CiAgICAgICAgICAgICAgInR5cGUiOiAibGluZWFyIgogICAgICAgICAgICB9LAogICAgICAgICAgICAic2hvd1BvaW50cyI6ICJuZXZlciIsCiAgICAgICAgICAgICJzcGFuTnVsbHMiOiB0cnVlCiAgICAgICAgICB9LAogICAgICAgICAgIm1hcHBpbmdzIjogW10sCiAgICAgICAgICAidGhyZXNob2xkcyI6IHsKICAgICAgICAgICAgIm1vZGUiOiAiYWJzb2x1dGUiLAogICAgICAgICAgICAic3RlcHMiOiBbCiAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgImNvbG9yIjogImdyZWVuIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IG51bGwKICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJ5ZWxsb3ciLAogICAgICAgICAgICAgICAgInZhbHVlIjogMC41CiAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAiY29sb3IiOiAicmVkIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IDEKICAgICAgICAgICAgICB9CiAgICAgICAgICAgIF0KICAgICAgICAgIH0sCiAgICAgICAgICAidW5pdCI6ICJzIgogICAgICAgIH0KICAgICAgfSwKICAgICAgImdyaWRQb3MiOiB7CiAgICAgICAgImgiOiA5LAogICAgICAgICJ3IjogMTIsCiAgICAgICAgIngiOiAwLAogICAgICAgICJ5IjogOQogICAgICB9LAogICAgICAiaWQiOiA4LAogICAgICAib3B0aW9ucyI6IHsKICAgICAgICAibGVnZW5kIjogewogICAgICAgICAgImNhbGNzIjogWyJtZWFuIiwgIm1heCIsICJsYXN0Tm90TnVsbCJdLAogICAgICAgICAgImRpc3BsYXlNb2RlIjogInRhYmxlIiwKICAgICAgICAgICJwbGFjZW1lbnQiOiAiYm90dG9tIgogICAgICAgIH0sCiAgICAgICAgInRvb2x0aXAiOiB7CiAgICAgICAgICAibW9kZSI6ICJtdWx0aSIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJ0YXJnZXRzIjogWwogICAgICAgIHsKICAgICAgICAgICJleHByIjogImhpc3RvZ3JhbV9xdWFudGlsZSgwLjUwLCBzdW0ocmF0ZShodHRwX3NlcnZlcl9yZXF1ZXN0c19zZWNvbmRzX2J1Y2tldHtqb2I9XCJzcHJpbmctYm9vdC1hY3R1YXRvclwifVs1bV0pKSBieSAoc2VydmljZSwgbGUpKSIsCiAgICAgICAgICAiaW50ZXJ2YWwiOiAiIiwKICAgICAgICAgICJsZWdlbmRGb3JtYXQiOiAie3tzZXJ2aWNlfX0gKHA1MCkiLAogICAgICAgICAgInJlZklkIjogIkEiCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiZXhwciI6ICJoaXN0b2dyYW1fcXVhbnRpbGUoMC45NSwgc3VtKHJhdGUoaHR0cF9zZXJ2ZXJfcmVxdWVzdHNfc2Vjb25kc19idWNrZXR7am9iPVwic3ByaW5nLWJvb3QtYWN0dWF0b3JcIn1bNW1dKSkgYnkgKHNlcnZpY2UsIGxlKSkiLAogICAgICAgICAgImludGVydmFsIjogIiIsCiAgICAgICAgICAibGVnZW5kRm9ybWF0IjogInt7c2VydmljZX19IChwOTUpIiwKICAgICAgICAgICJyZWZJZCI6ICJCIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImV4cHIiOiAiaGlzdG9ncmFtX3F1YW50aWxlKDAuOTksIHN1bShyYXRlKGh0dHBfc2VydmVyX3JlcXVlc3RzX3NlY29uZHNfYnVja2V0e2pvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCJ9WzVtXSkpIGJ5IChzZXJ2aWNlLCBsZSkpIiwKICAgICAgICAgICJpbnRlcnZhbCI6ICIiLAogICAgICAgICAgImxlZ2VuZEZvcm1hdCI6ICJ7e3NlcnZpY2V9fSAocDk5KSIsCiAgICAgICAgICAicmVmSWQiOiAiQyIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ0aXRsZSI6ICJSZXNwb25zZSBUaW1lIFBlcmNlbnRpbGVzIiwKICAgICAgInR5cGUiOiAidGltZXNlcmllcyIKICAgIH0sCiAgICB7CiAgICAgICJkYXRhc291cmNlIjogIlByb21ldGhldXMiLAogICAgICAiZmllbGRDb25maWciOiB7CiAgICAgICAgImRlZmF1bHRzIjogewogICAgICAgICAgImNvbG9yIjogewogICAgICAgICAgICAibW9kZSI6ICJwYWxldHRlLWNsYXNzaWMiCiAgICAgICAgICB9LAogICAgICAgICAgImN1c3RvbSI6IHsKICAgICAgICAgICAgImF4aXNMYWJlbCI6ICJNZW1vcnkiLAogICAgICAgICAgICAiYXhpc1BsYWNlbWVudCI6ICJhdXRvIiwKICAgICAgICAgICAgImJhckFsaWdubWVudCI6IDAsCiAgICAgICAgICAgICJkcmF3U3R5bGUiOiAibGluZSIsCiAgICAgICAgICAgICJmaWxsT3BhY2l0eSI6IDEwLAogICAgICAgICAgICAiZ3JhZGllbnRNb2RlIjogIm5vbmUiLAogICAgICAgICAgICAiaGlkZUZyb20iOiB7CiAgICAgICAgICAgICAgInRvb2x0aXAiOiBmYWxzZSwKICAgICAgICAgICAgICAidml6IjogZmFsc2UsCiAgICAgICAgICAgICAgImxlZ2VuZCI6IGZhbHNlCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJsaW5lSW50ZXJwb2xhdGlvbiI6ICJsaW5lYXIiLAogICAgICAgICAgICAibGluZVdpZHRoIjogMSwKICAgICAgICAgICAgInBvaW50U2l6ZSI6IDUsCiAgICAgICAgICAgICJzY2FsZURpc3RyaWJ1dGlvbiI6IHsKICAgICAgICAgICAgICAidHlwZSI6ICJsaW5lYXIiCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJzaG93UG9pbnRzIjogIm5ldmVyIiwKICAgICAgICAgICAgInNwYW5OdWxscyI6IHRydWUKICAgICAgICAgIH0sCiAgICAgICAgICAibWFwcGluZ3MiOiBbXSwKICAgICAgICAgICJ0aHJlc2hvbGRzIjogewogICAgICAgICAgICAibW9kZSI6ICJhYnNvbHV0ZSIsCiAgICAgICAgICAgICJzdGVwcyI6IFsKICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAiY29sb3IiOiAiZ3JlZW4iLAogICAgICAgICAgICAgICAgInZhbHVlIjogbnVsbAogICAgICAgICAgICAgIH0KICAgICAgICAgICAgXQogICAgICAgICAgfSwKICAgICAgICAgICJ1bml0IjogImJ5dGVzIgogICAgICAgIH0KICAgICAgfSwKICAgICAgImdyaWRQb3MiOiB7CiAgICAgICAgImgiOiA5LAogICAgICAgICJ3IjogMTIsCiAgICAgICAgIngiOiAxMiwKICAgICAgICAieSI6IDkKICAgICAgfSwKICAgICAgImlkIjogMTAsCiAgICAgICJvcHRpb25zIjogewogICAgICAgICJsZWdlbmQiOiB7CiAgICAgICAgICAiY2FsY3MiOiBbImxhc3ROb3ROdWxsIiwgIm1heCJdLAogICAgICAgICAgImRpc3BsYXlNb2RlIjogInRhYmxlIiwKICAgICAgICAgICJwbGFjZW1lbnQiOiAiYm90dG9tIgogICAgICAgIH0sCiAgICAgICAgInRvb2x0aXAiOiB7CiAgICAgICAgICAibW9kZSI6ICJtdWx0aSIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJ0YXJnZXRzIjogWwogICAgICAgIHsKICAgICAgICAgICJleHByIjogImp2bV9tZW1vcnlfdXNlZF9ieXRlc3tqb2I9XCJzcHJpbmctYm9vdC1hY3R1YXRvclwiLGFyZWE9XCJoZWFwXCJ9IiwKICAgICAgICAgICJpbnRlcnZhbCI6ICIiLAogICAgICAgICAgImxlZ2VuZEZvcm1hdCI6ICJ7e3NlcnZpY2V9fSAtIEhlYXAgVXNlZCIsCiAgICAgICAgICAicmVmSWQiOiAiQSIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJleHByIjogImp2bV9tZW1vcnlfbWF4X2J5dGVze2pvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCIsYXJlYT1cImhlYXBcIn0iLAogICAgICAgICAgImludGVydmFsIjogIiIsCiAgICAgICAgICAibGVnZW5kRm9ybWF0IjogInt7c2VydmljZX19IC0gSGVhcCBNYXgiLAogICAgICAgICAgInJlZklkIjogIkIiCiAgICAgICAgfQogICAgICBdLAogICAgICAidGl0bGUiOiAiSlZNIE1lbW9yeSBVc2FnZSBieSBTZXJ2aWNlIiwKICAgICAgInR5cGUiOiAidGltZXNlcmllcyIKICAgIH0sCiAgICB7CiAgICAgICJkYXRhc291cmNlIjogIlByb21ldGhldXMiLAogICAgICAiZmllbGRDb25maWciOiB7CiAgICAgICAgImRlZmF1bHRzIjogewogICAgICAgICAgImNvbG9yIjogewogICAgICAgICAgICAibW9kZSI6ICJwYWxldHRlLWNsYXNzaWMiCiAgICAgICAgICB9LAogICAgICAgICAgImN1c3RvbSI6IHsKICAgICAgICAgICAgImF4aXNMYWJlbCI6ICJFcnJvcnMvc2VjIiwKICAgICAgICAgICAgImF4aXNQbGFjZW1lbnQiOiAiYXV0byIsCiAgICAgICAgICAgICJiYXJBbGlnbm1lbnQiOiAwLAogICAgICAgICAgICAiZHJhd1N0eWxlIjogImxpbmUiLAogICAgICAgICAgICAiZmlsbE9wYWNpdHkiOiAyMCwKICAgICAgICAgICAgImdyYWRpZW50TW9kZSI6ICJub25lIiwKICAgICAgICAgICAgImhpZGVGcm9tIjogewogICAgICAgICAgICAgICJ0b29sdGlwIjogZmFsc2UsCiAgICAgICAgICAgICAgInZpeiI6IGZhbHNlLAogICAgICAgICAgICAgICJsZWdlbmQiOiBmYWxzZQogICAgICAgICAgICB9LAogICAgICAgICAgICAibGluZUludGVycG9sYXRpb24iOiAibGluZWFyIiwKICAgICAgICAgICAgImxpbmVXaWR0aCI6IDIsCiAgICAgICAgICAgICJwb2ludFNpemUiOiA1LAogICAgICAgICAgICAic2NhbGVEaXN0cmlidXRpb24iOiB7CiAgICAgICAgICAgICAgInR5cGUiOiAibGluZWFyIgogICAgICAgICAgICB9LAogICAgICAgICAgICAic2hvd1BvaW50cyI6ICJuZXZlciIsCiAgICAgICAgICAgICJzcGFuTnVsbHMiOiB0cnVlCiAgICAgICAgICB9LAogICAgICAgICAgIm1hcHBpbmdzIjogW10sCiAgICAgICAgICAidGhyZXNob2xkcyI6IHsKICAgICAgICAgICAgIm1vZGUiOiAiYWJzb2x1dGUiLAogICAgICAgICAgICAic3RlcHMiOiBbCiAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgImNvbG9yIjogImdyZWVuIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IG51bGwKICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJjb2xvciI6ICJyZWQiLAogICAgICAgICAgICAgICAgInZhbHVlIjogMQogICAgICAgICAgICAgIH0KICAgICAgICAgICAgXQogICAgICAgICAgfSwKICAgICAgICAgICJ1bml0IjogIm9wcyIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJncmlkUG9zIjogewogICAgICAgICJoIjogOCwKICAgICAgICAidyI6IDEyLAogICAgICAgICJ4IjogMCwKICAgICAgICAieSI6IDE4CiAgICAgIH0sCiAgICAgICJpZCI6IDEyLAogICAgICAib3B0aW9ucyI6IHsKICAgICAgICAibGVnZW5kIjogewogICAgICAgICAgImNhbGNzIjogWyJzdW0iLCAibGFzdE5vdE51bGwiXSwKICAgICAgICAgICJkaXNwbGF5TW9kZSI6ICJ0YWJsZSIsCiAgICAgICAgICAicGxhY2VtZW50IjogImJvdHRvbSIKICAgICAgICB9LAogICAgICAgICJ0b29sdGlwIjogewogICAgICAgICAgIm1vZGUiOiAibXVsdGkiCiAgICAgICAgfQogICAgICB9LAogICAgICAidGFyZ2V0cyI6IFsKICAgICAgICB7CiAgICAgICAgICAiZXhwciI6ICJzdW0ocmF0ZShodHRwX3NlcnZlcl9yZXF1ZXN0c19zZWNvbmRzX2NvdW50e2pvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCIsc3RhdHVzPX5cIjUuLlwifVsxbV0pKSBieSAoc2VydmljZSkiLAogICAgICAgICAgImludGVydmFsIjogIiIsCiAgICAgICAgICAibGVnZW5kRm9ybWF0IjogInt7c2VydmljZX19IC0gNXh4IiwKICAgICAgICAgICJyZWZJZCI6ICJBIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImV4cHIiOiAic3VtKHJhdGUoaHR0cF9zZXJ2ZXJfcmVxdWVzdHNfc2Vjb25kc19jb3VudHtqb2I9XCJzcHJpbmctYm9vdC1hY3R1YXRvclwiLHN0YXR1cz1+XCI0Li5cIn1bMW1dKSkgYnkgKHNlcnZpY2UpIiwKICAgICAgICAgICJpbnRlcnZhbCI6ICIiLAogICAgICAgICAgImxlZ2VuZEZvcm1hdCI6ICJ7e3NlcnZpY2V9fSAtIDR4eCIsCiAgICAgICAgICAicmVmSWQiOiAiQiIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ0aXRsZSI6ICJIVFRQIEVycm9yIFJhdGUiLAogICAgICAidHlwZSI6ICJ0aW1lc2VyaWVzIgogICAgfSwKICAgIHsKICAgICAgImRhdGFzb3VyY2UiOiAiUHJvbWV0aGV1cyIsCiAgICAgICJmaWVsZENvbmZpZyI6IHsKICAgICAgICAiZGVmYXVsdHMiOiB7CiAgICAgICAgICAiY29sb3IiOiB7CiAgICAgICAgICAgICJtb2RlIjogInBhbGV0dGUtY2xhc3NpYyIKICAgICAgICAgIH0sCiAgICAgICAgICAiY3VzdG9tIjogewogICAgICAgICAgICAiYXhpc0xhYmVsIjogIlRocmVhZHMiLAogICAgICAgICAgICAiYXhpc1BsYWNlbWVudCI6ICJhdXRvIiwKICAgICAgICAgICAgImJhckFsaWdubWVudCI6IDAsCiAgICAgICAgICAgICJkcmF3U3R5bGUiOiAibGluZSIsCiAgICAgICAgICAgICJmaWxsT3BhY2l0eSI6IDEwLAogICAgICAgICAgICAiZ3JhZGllbnRNb2RlIjogIm5vbmUiLAogICAgICAgICAgICAiaGlkZUZyb20iOiB7CiAgICAgICAgICAgICAgInRvb2x0aXAiOiBmYWxzZSwKICAgICAgICAgICAgICAidml6IjogZmFsc2UsCiAgICAgICAgICAgICAgImxlZ2VuZCI6IGZhbHNlCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJsaW5lSW50ZXJwb2xhdGlvbiI6ICJsaW5lYXIiLAogICAgICAgICAgICAibGluZVdpZHRoIjogMSwKICAgICAgICAgICAgInBvaW50U2l6ZSI6IDUsCiAgICAgICAgICAgICJzY2FsZURpc3RyaWJ1dGlvbiI6IHsKICAgICAgICAgICAgICAidHlwZSI6ICJsaW5lYXIiCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJzaG93UG9pbnRzIjogIm5ldmVyIiwKICAgICAgICAgICAgInNwYW5OdWxscyI6IHRydWUKICAgICAgICAgIH0sCiAgICAgICAgICAibWFwcGluZ3MiOiBbXSwKICAgICAgICAgICJ0aHJlc2hvbGRzIjogewogICAgICAgICAgICAibW9kZSI6ICJhYnNvbHV0ZSIsCiAgICAgICAgICAgICJzdGVwcyI6IFsKICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAiY29sb3IiOiAiZ3JlZW4iLAogICAgICAgICAgICAgICAgInZhbHVlIjogbnVsbAogICAgICAgICAgICAgIH0KICAgICAgICAgICAgXQogICAgICAgICAgfSwKICAgICAgICAgICJ1bml0IjogInNob3J0IgogICAgICAgIH0KICAgICAgfSwKICAgICAgImdyaWRQb3MiOiB7CiAgICAgICAgImgiOiA4LAogICAgICAgICJ3IjogMTIsCiAgICAgICAgIngiOiAxMiwKICAgICAgICAieSI6IDE4CiAgICAgIH0sCiAgICAgICJpZCI6IDE0LAogICAgICAib3B0aW9ucyI6IHsKICAgICAgICAibGVnZW5kIjogewogICAgICAgICAgImNhbGNzIjogWyJsYXN0Tm90TnVsbCIsICJtYXgiXSwKICAgICAgICAgICJkaXNwbGF5TW9kZSI6ICJ0YWJsZSIsCiAgICAgICAgICAicGxhY2VtZW50IjogImJvdHRvbSIKICAgICAgICB9LAogICAgICAgICJ0b29sdGlwIjogewogICAgICAgICAgIm1vZGUiOiAibXVsdGkiCiAgICAgICAgfQogICAgICB9LAogICAgICAidGFyZ2V0cyI6IFsKICAgICAgICB7CiAgICAgICAgICAiZXhwciI6ICJqdm1fdGhyZWFkc19saXZlX3RocmVhZHN7am9iPVwic3ByaW5nLWJvb3QtYWN0dWF0b3JcIn0iLAogICAgICAgICAgImludGVydmFsIjogIiIsCiAgICAgICAgICAibGVnZW5kRm9ybWF0IjogInt7c2VydmljZX19IC0gTGl2ZSIsCiAgICAgICAgICAicmVmSWQiOiAiQSIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJleHByIjogImp2bV90aHJlYWRzX2RhZW1vbl90aHJlYWRze2pvYj1cInNwcmluZy1ib290LWFjdHVhdG9yXCJ9IiwKICAgICAgICAgICJpbnRlcnZhbCI6ICIiLAogICAgICAgICAgImxlZ2VuZEZvcm1hdCI6ICJ7e3NlcnZpY2V9fSAtIERhZW1vbiIsCiAgICAgICAgICAicmVmSWQiOiAiQiIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ0aXRsZSI6ICJKVk0gVGhyZWFkcyIsCiAgICAgICJ0eXBlIjogInRpbWVzZXJpZXMiCiAgICB9CiAgXSwKICAicmVmcmVzaCI6ICIxMHMiLAogICJzY2hlbWFWZXJzaW9uIjogMzAsCiAgInN0eWxlIjogImRhcmsiLAogICJ0YWdzIjogWyJzcHJpbmctYm9vdCIsICJtaWNyb3NlcnZpY2VzIiwgImVjb21tZXJjZSJdLAogICJ0ZW1wbGF0aW5nIjogewogICAgImxpc3QiOiBbXQogIH0sCiAgInRpbWUiOiB7CiAgICAiZnJvbSI6ICJub3ctMWgiLAogICAgInRvIjogIm5vdyIKICB9LAogICJ0aW1lcGlja2VyIjogewogICAgInJlZnJlc2hfaW50ZXJ2YWxzIjogWwogICAgICAiNXMiLAogICAgICAiMTBzIiwKICAgICAgIjMwcyIsCiAgICAgICIxbSIsCiAgICAgICI1bSIsCiAgICAgICIxNW0iLAogICAgICAiMzBtIiwKICAgICAgIjFoIiwKICAgICAgIjJoIiwKICAgICAgIjFkIgogICAgXQogIH0sCiAgInRpbWV6b25lIjogImJyb3dzZXIiLAogICJ0aXRsZSI6ICJFLUNvbW1lcmNlIE1pY3Jvc2VydmljZXMgLSBTcHJpbmcgQm9vdCBNZXRyaWNzIiwKICAidWlkIjogImVjb21tZXJjZS1zcHJpbmctYm9vdCIsCiAgInZlcnNpb24iOiAxCn0=
+---
+# Source: ecommerce/charts/grafana/templates/configmap-datasources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-grafana-datasources
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://my-ecommerce-prometheus.monitoring.svc.cluster.local:9090
+      isDefault: true
+      editable: true
+      jsonData:
+        timeInterval: "15s"
+        httpMethod: "POST"
+---
+# Source: ecommerce/charts/grafana/templates/configmap-provisioning.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-grafana-provisioning
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://my-ecommerce-prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+          httpMethod: "POST"
+        version: 1
+  dashboards.yaml: |
+---
+# Source: ecommerce/charts/grafana/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-grafana-config
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  grafana.ini: |
+    [analytics]
+    check_for_updates = true
+    
+    [grafana_net]
+    url = https://grafana.net
+    
+    [log]
+    mode = console
+    level = info
+    
+    [paths]
+    data = /var/lib/grafana/
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+    
+    [server]
+    protocol = http
+    http_port = 3000
+    domain = localhost
+    root_url = %(protocol)s://%(domain)s:%(http_port)s/
+    
+    [security]
+    admin_user = admin
+    admin_password = admin123
+    
+    [users]
+    allow_sign_up = false
+    
+    [auth.anonymous]
+    enabled = false
+    
+    [dashboards]
+    default_home_dashboard_path = /var/lib/grafana/dashboards/springboot/spring-boot-metrics.js
+---
+# Source: ecommerce/charts/prometheus/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-prometheus-config
+  namespace: monitoring
+  labels:
+    app: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      scrape_timeout: 10s
+      external_labels:
+        cluster: 'ecommerce-k8s'
+        environment: 'dev'
+
+    scrape_configs:
+      # Scrape Prometheus mismo
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # ============================================
+      # ✅ NUEVO: cAdvisor - Métricas de contenedores
+      # ============================================
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        # Configuración TLS para comunicación segura con API server
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        # Token de autenticación del ServiceAccount
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        
+        kubernetes_sd_configs:
+          - role: node
+        
+        relabel_configs:
+          # Mapear labels de nodos de Kubernetes
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          
+          # Redirigir al API server de Kubernetes
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          
+          # Construir la ruta a las métricas de cAdvisor
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+          
+          # Agregar el nombre del nodo como label
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+      # ============================================
+      # ✅ NUEVO: Kubelet - Métricas del kubelet
+      # ============================================
+      - job_name: 'kubernetes-kubelet'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        
+        kubernetes_sd_configs:
+          - role: node
+        
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics
+          
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+      # ============================================
+      # ✅ OPCIONAL: Métricas de recursos del kubelet
+      # ============================================
+      - job_name: 'kubernetes-kubelet-resource'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        
+        kubernetes_sd_configs:
+          - role: node
+        
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/resource
+          
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+      # ============================================
+      # Scrape CROSS-NAMESPACE de microservicios
+      # ============================================
+      - job_name: 'spring-boot-actuator'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - dev
+                - qa
+                - prod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            action: keep
+            regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: http
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: service
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - target_label: __metrics_path__
+            replacement: /actuator/prometheus
+
+      # Scrape de Zipkin CROSS-NAMESPACE
+      - job_name: 'zipkin'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - dev
+                - qa
+                - prod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            action: keep
+            regex: zipkin
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: service
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - target_label: __metrics_path__
+            replacement: /prometheus
+
+      # Scrape de Eureka CROSS-NAMESPACE
+      - job_name: 'eureka'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - dev
+                - qa
+                - prod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_app]
+            action: keep
+            regex: service-discovery
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: service
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - target_label: __metrics_path__
+            replacement: /actuator/prometheus
+---
+# Source: ecommerce/charts/grafana/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: release-name-grafana-pvc
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Source: ecommerce/charts/prometheus/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: release-name-prometheus-pvc
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 8Gi
+---
+# Source: ecommerce/charts/prometheus/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: release-name-prometheus
+  labels:
+    app: prometheus
+rules:
+ 
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy          
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+
+  - nonResourceURLs:
+      - /metrics
+      - /metrics/cadvisor      # ← cAdvisor metrics
+      - /metrics/resource      # ← Resource metrics
+    verbs: ["get"]
+
+  - apiGroups: [""]
+    resources:
+      - nodes/metrics          # ← Métricas de nodos
+      - nodes/stats            # ← Estadísticas de nodos
+    verbs: ["get"]
+---
+# Source: ecommerce/charts/prometheus/templates/cluesterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: release-name-prometheus
+  labels:
+    app: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: release-name-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: release-name-prometheus
+    namespace: monitoring
+---
+# Source: ecommerce/charts/grafana/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: http
+  selector:
+    app: grafana
+---
+# Source: ecommerce/charts/prometheus/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      protocol: TCP
+      port: 9090
+      targetPort: http
+  selector:
+    app: prometheus
+---
+# Source: ecommerce/charts/grafana/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      serviceAccountName: release-name-grafana
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-dashboards
+          image: busybox:1.36
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /dashboards/springboot
+              cp /tmp/dashboards/* /dashboards/springboot/ || true
+          volumeMounts:
+            - name: dashboard-springboot
+              mountPath: /tmp/dashboards
+            - name: dashboards-storage
+              mountPath: /dashboards
+      containers:
+        - name: grafana
+          image: "grafana/grafana:10.2.0"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin123
+            - name: GF_INSTALL_PLUGINS
+              value: grafana-piechart-panel,grafana-clock-panel
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          resources:
+            limits:
+              cpu: 300m
+              memory: 512Mi
+            requests:
+              cpu: 150m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/grafana/grafana.ini
+              subPath: grafana.ini
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: storage
+              mountPath: /var/lib/grafana
+            - name: tmp
+              mountPath: /tmp
+            - name: provisioning                      
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning                           
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: release-name-grafana-config
+        - name: datasources
+          configMap:
+            name: release-name-grafana-datasources
+        - name: storage
+          persistentVolumeClaim:
+            claimName: release-name-grafana-pvc
+        - name: tmp
+          emptyDir: {}
+        - name: provisioning                             
+          configMap:
+            name: release-name-grafana-provisioning
+        - name: dashboards-files
+          configMap:
+            name: release-name-grafana-dashboards
+---
+# Source: ecommerce/charts/prometheus/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: release-name-prometheus
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: "prom/prometheus:v2.45.0"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--storage.tsdb.retention.time=15d'
+            - '--storage.tsdb.retention.size=7GB'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+            - '--web.enable-lifecycle'
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: release-name-prometheus-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: release-name-prometheus-pvc
+        - name: tmp
+          emptyDir: {}
+---
+# Source: ecommerce/charts/prometheus/templates/configmap.yaml
+# ============================================
+# ARCHIVO 1: prometheus/templates/configmap.yaml
+# ConfigMap con cAdvisor y Kubelet
+# ============================================

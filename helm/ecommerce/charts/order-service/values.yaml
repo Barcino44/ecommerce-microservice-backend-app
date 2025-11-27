@@ -35,13 +35,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/order-service"
-    tag: "feature-db"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/order-service"
-    tag: "feature-db"
+    tag: "feature-monitoring"
   replicaCount: 0 
 
 prometheus:
