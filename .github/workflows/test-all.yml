@@ -442,9 +442,6 @@ jobs:
           
           echo "=== Eureka Server Logs ==="
           kubectl logs -n ${{ needs.set-env.outputs.ENVIRONMENT }} -l app=service-discovery --tail=50 || true
-          
-          echo "=== Eureka Server Service ==="
-          kubectl get svc -n ${{ needs.set-env.outputs.ENVIRONMENT }} -l app=service-discovery
 
       - name: Debug API Gateway Connection to Eureka
         run: |
@@ -459,7 +456,7 @@ jobs:
         run: |
           cd helm
           # Obtener el namespace del values file
-          NAMESPACE=$(helmfile -e ${{ needs.set-env.outputs.ENVIRONMENT }} template | grep -A 1 "kind: Service" | grep "namespace:" | head -1 | awk '{print $2}' | tr -d '"')
+          NAMESPACE= ${{ needs.set-env.outputs.ENVIRONMENT }}
           echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
           
           # Obtener el release name del my-ecommerce
