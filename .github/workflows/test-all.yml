@@ -227,6 +227,15 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
       
+      - name: Scan Docker image with Trivy (console output)
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: table
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+
       - name: Scan Docker image with Trivy (HTML report)
         uses: aquasecurity/trivy-action@0.11.2
         with:
@@ -242,7 +251,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report-${{ matrix.service }}
-          path: trivy-${{ matrix.service }}.html'
+          path: trivy-${{ matrix.service }}.html
+
 
   # ============================================
   # 3. VALIDATE HELM CHARTS
