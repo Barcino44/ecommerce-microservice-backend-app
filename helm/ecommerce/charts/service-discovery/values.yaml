@@ -42,3 +42,8 @@ deploymentStrategy:
   type: blue-green
   active: blue 
 
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"

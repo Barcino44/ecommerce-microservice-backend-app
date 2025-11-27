@@ -44,4 +44,9 @@ canary:
     repository: "barcino/shipping-service"
     tag: "feature-db"
   replicaCount: 0  
-  
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"

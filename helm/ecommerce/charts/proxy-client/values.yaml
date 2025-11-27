@@ -41,3 +41,9 @@ canary:
     repository: "barcino/proxy-client"
     tag: "0.1.0"
   replicaCount: 0 
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"

@@ -44,3 +44,9 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"
