@@ -264,6 +264,18 @@ jobs:
         run: |
           helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
 
+      - name: Add Helm repositories
+        run: |
+          cd helm
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add stable https://charts.helm.sh/stable
+          helm repo update
+
+      - name: Build Helm dependencies
+        run: |
+          cd helm/ecommerce
+          helm dependency update
+
       - name: Helmfile lint
         run: |
           cd helm
