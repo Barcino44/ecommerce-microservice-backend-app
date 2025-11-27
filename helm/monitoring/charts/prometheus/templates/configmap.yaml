@@ -21,6 +21,64 @@ data:
         static_configs:
           - targets: ['localhost:9090']
 
+      - job_name: 'spring-boot-actuator'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                {{- if .Values.config.targetNamespaces }}
+                {{- range .Values.config.targetNamespaces }}
+                - {{ . }}
+                {{- end }}
+                {{- else }}
+                - dev
+                - qa
+                - prod
+                {{- end }}
+        relabel_configs:
+          # Solo scrape pods con annotation prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+
+          # Filtrar por aplicaciones específicas
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
+
+          # Usar el puerto especificado en la annotation
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __meta_kubernetes_pod_container_port_number
+            regex: (.+)
+
+          # Construir la dirección: pod_ip:port
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+
+          # Usar la ruta especificada en la annotation
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # Agregar labels útiles
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: service
+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+
+      
       - job_name: 'kubernetes-cadvisor'
         scheme: https
         tls_config:
@@ -45,7 +103,6 @@ data:
 
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
-
 
       - job_name: 'kubernetes-kubelet'
         scheme: https
@@ -72,72 +129,9 @@ data:
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      
-      - job_name: 'kubernetes-kubelet-resource'
-        scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          insecure_skip_verify: false
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-        kubernetes_sd_configs:
-          - role: node
-
-        relabel_configs:
-          - action: labelmap
-            regex: __meta_kubernetes_node_label_(.+)
-
-          - target_label: __address__
-            replacement: kubernetes.default.svc:443
-
-          - source_labels: [__meta_kubernetes_node_name]
-            regex: (.+)
-            target_label: __metrics_path__
-            replacement: /api/v1/nodes/$1/proxy/metrics/resource
-
-          - source_labels: [__meta_kubernetes_node_name]
-            target_label: node
-
-    
-      - job_name: 'spring-boot-actuator'
-        kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names:
-                {{- if .Values.config.targetNamespaces }}
-                {{- range .Values.config.targetNamespaces }}
-                - {{ . }}
-                {{- end }}
-                {{- else }}
-                - dev
-                - qa
-                - prod
-                {{- end }}
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_service_label_app]
-            action: keep
-            regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
-
-          - source_labels: [__meta_kubernetes_endpoint_port_name]
-            action: keep
-            regex: http
-
-          - source_labels: [__meta_kubernetes_service_name]
-            target_label: service
-
-          - source_labels: [__meta_kubernetes_namespace]
-            target_label: namespace
-
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
-
-          - target_label: __metrics_path__
-            replacement: /actuator/prometheus
-
-     
       - job_name: 'zipkin'
         kubernetes_sd_configs:
-          - role: endpoints
+          - role: pod
             namespaces:
               names:
                 {{- if .Values.config.targetNamespaces }}
@@ -150,11 +144,15 @@ data:
                 - prod
                 {{- end }}
         relabel_configs:
-          - source_labels: [__meta_kubernetes_service_label_app]
+          - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: zipkin
 
-          - source_labels: [__meta_kubernetes_service_name]
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:9411
+
+          - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
 
           - source_labels: [__meta_kubernetes_namespace]
@@ -163,23 +161,30 @@ data:
           - target_label: __metrics_path__
             replacement: /prometheus
 
-      # ============================================
-      # Scrape de Eureka CROSS-NAMESPACE
-      # ============================================
       - job_name: 'eureka'
         kubernetes_sd_configs:
-          - role: endpoints
+          - role: pod
             namespaces:
               names:
+                {{- if .Values.config.targetNamespaces }}
+                {{- range .Values.config.targetNamespaces }}
+                - {{ . }}
+                {{- end }}
+                {{- else }}
                 - dev
                 - qa
                 - prod
+                {{- end }}
         relabel_configs:
-          - source_labels: [__meta_kubernetes_service_label_app]
+          - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: service-discovery
 
-          - source_labels: [__meta_kubernetes_service_name]
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:8761
+
+          - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
 
           - source_labels: [__meta_kubernetes_namespace]
@@ -187,4 +192,3 @@ data:
 
           - target_label: __metrics_path__
             replacement: /actuator/prometheus
-
