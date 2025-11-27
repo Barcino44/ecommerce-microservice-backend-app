@@ -262,7 +262,7 @@ jobs:
 
       - name: Install Helm Diff plugin
         run: |
-          helm plugin install https://github.com/databus23/helm-diff
+          helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
 
       - name: Helmfile lint
         run: |
@@ -305,7 +305,7 @@ jobs:
 
       - name: Install Helm Diff plugin
         run: |
-          helm plugin install https://github.com/databus23/helm-diff --version v3.8.1
+          helm plugin install https://github.com/databus23/helm-diff
 
       - name: Set up Kind
         uses: engineerd/setup-kind@v0.6.2
