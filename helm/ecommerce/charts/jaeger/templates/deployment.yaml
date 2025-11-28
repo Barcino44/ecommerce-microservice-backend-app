@@ -13,6 +13,7 @@ spec:
       labels:
         app: jaeger
     spec:
+      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
       {{- if .Values.podSecurityContext.enabled }}
       securityContext:
         runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}

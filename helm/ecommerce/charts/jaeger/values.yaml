@@ -1,3 +1,8 @@
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+
 image:
   repository: jaegertracing/all-in-one
   tag: "1.56"
