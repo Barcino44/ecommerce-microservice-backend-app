@@ -1,0 +1,6 @@
+apiVersion: v2
+name: jaeger
+description: Jaeger distributed tracing system with Zipkin compatibility
+type: application
+version: 1.0.0
+appVersion: "1.53"

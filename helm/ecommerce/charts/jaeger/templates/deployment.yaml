@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: {{ .Values.global.replicaCount }}
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.podSecurityContext.seccompProfile.type }}
+      {{- end }}
+      containers:
+        - name: jaeger
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--collector.zipkin.host-port=:{{ .Values.service.ports.zipkin }}"
+          securityContext:
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
+          ports:
+            - name: ui
+              containerPort: {{ .Values.service.ports.ui }}
+            - name: zipkin
+              containerPort: {{ .Values.service.ports.zipkin }}
+            - name: otlp-grpc
+              containerPort: {{ .Values.service.ports.otlpGrpc }}
+            - name: otlp-http
+              containerPort: {{ .Values.service.ports.otlpHttp }}

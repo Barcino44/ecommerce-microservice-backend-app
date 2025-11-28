@@ -6,9 +6,9 @@ version: 0.1.0
 appVersion: "1.0"
 
 dependencies:
-  - name: zipkin
-    version: "0.1.0"  
-    repository: "file://charts/zipkin"
+  - name: jaeger
+    version: "0.1.0"
+    repository: "file://charts/jaeger"
   - name: api-gateway
     version: "0.1.0"
     repository: "file://charts/api-gateway"

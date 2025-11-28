@@ -1,0 +1,30 @@
+image:
+  repository: jaegertracing/all-in-one
+  tag: "1.56"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  ports:
+    ui: 16686
+    zipkin: 9411
+    otlpGrpc: 14250
+    otlpHttp: 14268
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
