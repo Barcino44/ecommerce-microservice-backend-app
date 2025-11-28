@@ -53,11 +53,14 @@ data:
             regex: (.+)
 
           # Construir la dirección: pod_ip:port
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: instance
+            action: replace
+            
+          - source_labels: [instance, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ':'
             action: replace
             target_label: __address__
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: $1:$2
 
           # Usar la ruta especificada en la annotation
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]

@@ -40,7 +40,7 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://my-ecommerce-prometheus.monitoring.svc.cluster.local:9090
+    url: http://my-monitoring-prometheus.monitoring.svc.cluster.local:9090
     isDefault: true
     editable: true
 

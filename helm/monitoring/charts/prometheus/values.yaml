@@ -34,7 +34,7 @@ containerSecurityContext:
 config:
   globalScrapeInterval: 15s
   globalEvaluationInterval: 15s
-  scrapeTimeout: 10s
+  scrapeTimeout: 15s
 
 # Persistent Volume para almacenar métricas
 persistence:

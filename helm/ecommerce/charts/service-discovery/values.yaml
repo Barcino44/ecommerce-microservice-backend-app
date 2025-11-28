@@ -45,5 +45,5 @@ deploymentStrategy:
 prometheus:
   enabled: true
   scrape: "true"
-  port: 8080
+  port: 8761
   path: "/actuator/prometheus"

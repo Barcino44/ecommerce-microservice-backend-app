@@ -48,5 +48,5 @@ containerSecurityContext:
 prometheus:
   enabled: true
   scrape: "true"
-  port: 8080
+  port: 9296
   path: "/actuator/prometheus"
