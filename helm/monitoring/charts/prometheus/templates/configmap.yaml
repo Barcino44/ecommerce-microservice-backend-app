@@ -60,6 +60,10 @@ data:
             replacement: "$1:$2"
             target_label: __address__
 
+          - source_labels: [__address__]
+            regex: '.*:.*'  # Solo mantener si tiene formato IP:PORT
+            action: keep
+            
           # Ruta a métricas
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             target_label: __metrics_path__
@@ -77,7 +81,8 @@ data:
 
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: node
-
+          # Después del relabel que construye __address__, agrega:
+        
 
       # ============================================
       # cADVISOR (contenedores)
