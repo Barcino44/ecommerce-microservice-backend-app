@@ -47,6 +47,7 @@ EOF
 
     kubeseal \
       --format yaml \
+      --cert mycert.pem \
       --namespace "$ENV" \
       --name "$SECRET_NAME" \
       < "$TMP_SECRET" \
