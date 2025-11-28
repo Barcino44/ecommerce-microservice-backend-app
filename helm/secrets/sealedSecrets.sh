@@ -7,7 +7,7 @@ MICROS=("user-service" "product-service" "order-service" "payment-service" "favo
 ENVIRONMENTS=("qa" "prod")
 
 # Ruta donde quedarán los SealedSecrets
-BASE_DIR="sealedsecrets"
+BASE_DIR="secrets/sealedsecrets"
 
 # Archivo temporal para crear Secret en texto plano
 TMP_SECRET="tmp-secret.yaml"
@@ -47,7 +47,7 @@ EOF
 
     kubeseal \
       --format yaml \
-      --cert mycert.pem \
+      --cert secrets/mycert.pem \
       --namespace "$ENV" \
       --name "$SECRET_NAME" \
       < "$TMP_SECRET" \
