@@ -12,16 +12,22 @@ data:
       evaluation_interval: {{ .Values.config.globalEvaluationInterval }}
       scrape_timeout: {{ .Values.config.scrapeTimeout }}
       external_labels:
-        cluster: 'ecommerce-k8s'
-        environment: '{{ .Values.global.springProfilesActive }}'
+        cluster: "ecommerce-k8s"
+        environment: "{{ .Values.global.springProfilesActive }}"
 
     scrape_configs:
-      # Scrape Prometheus mismo
-      - job_name: 'prometheus'
+      # ============================================
+      # SCRAPE PROMETHEUS
+      # ============================================
+      - job_name: "prometheus"
         static_configs:
-          - targets: ['localhost:9090']
+          - targets: ["localhost:9090"]
 
-      - job_name: 'spring-boot-actuator'
+      # ============================================
+      # SPRING BOOT MICROSERVICES (role: pod)
+      # Lee prom.io/scrape, prom.io/port y prom.io/path
+      # ============================================
+      - job_name: "spring-boot-actuator"
         kubernetes_sd_configs:
           - role: pod
             namespaces:
@@ -35,40 +41,31 @@ data:
                 - qa
                 - prod
                 {{- end }}
+
         relabel_configs:
-          # Solo scrape pods con annotation prometheus.io/scrape=true
+          # Solo scrape pods con prometheus.io/scrape=true
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: true
 
-          # Filtrar por aplicaciones específicas
+          # Filtrar las apps que quieras monitorear
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
 
-          # Usar el puerto especificado en la annotation
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            target_label: __meta_kubernetes_pod_container_port_number
-            regex: (.+)
-
-          # Construir la dirección: pod_ip:port
-          - source_labels: [__meta_kubernetes_pod_ip]
-            target_label: instance
-            action: replace
-            
-          - source_labels: [instance, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            separator: ':'
-            action: replace
+          # Construir __address__ = podIP:port
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ":"
+            regex: (.+);(.+)
+            replacement: "$1:$2"
             target_label: __address__
 
-          # Usar la ruta especificada en la annotation
+          # Ruta a métricas
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
             target_label: __metrics_path__
             regex: (.+)
 
-          # Agregar labels útiles
+          # Labels útiles
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
 
@@ -81,12 +78,14 @@ data:
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: node
 
-      
-      - job_name: 'kubernetes-cadvisor'
+
+      # ============================================
+      # cADVISOR (contenedores)
+      # ============================================
+      - job_name: "kubernetes-cadvisor"
         scheme: https
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          insecure_skip_verify: false
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
         kubernetes_sd_configs:
@@ -107,11 +106,14 @@ data:
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      - job_name: 'kubernetes-kubelet'
+
+      # ============================================
+      # KUBELET METRICS
+      # ============================================
+      - job_name: "kubernetes-kubelet"
         scheme: https
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          insecure_skip_verify: false
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
         kubernetes_sd_configs:
@@ -132,7 +134,11 @@ data:
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      - job_name: 'zipkin'
+
+      # ============================================
+      # ZIPKIN
+      # ============================================
+      - job_name: "zipkin"
         kubernetes_sd_configs:
           - role: pod
             namespaces:
@@ -146,14 +152,15 @@ data:
                 - qa
                 - prod
                 {{- end }}
+
         relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: zipkin
 
           - source_labels: [__meta_kubernetes_pod_ip]
+            replacement: "$1:9411"
             target_label: __address__
-            replacement: ${1}:9411
 
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
@@ -164,7 +171,11 @@ data:
           - target_label: __metrics_path__
             replacement: /prometheus
 
-      - job_name: 'eureka'
+
+      # ============================================
+      # EUREKA
+      # ============================================
+      - job_name: "eureka"
         kubernetes_sd_configs:
           - role: pod
             namespaces:
@@ -178,14 +189,15 @@ data:
                 - qa
                 - prod
                 {{- end }}
+
         relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: service-discovery
 
           - source_labels: [__meta_kubernetes_pod_ip]
+            replacement: "$1:8761"
             target_label: __address__
-            replacement: ${1}:8761
 
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
@@ -195,3 +207,4 @@ data:
 
           - target_label: __metrics_path__
             replacement: /actuator/prometheus
+

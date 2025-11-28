@@ -49,5 +49,5 @@ canary:
 prometheus:
   enabled: true
   scrape: "true"
-  port: 8800
+  port: 8500
   path: "/actuator/prometheus"
