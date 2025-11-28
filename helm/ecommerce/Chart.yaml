@@ -4,3 +4,38 @@ description: "Umbrella Helm chart to deploy the ecommerce microservices"
 type: application
 version: 0.1.0
 appVersion: "1.0"
+
+dependencies:
+  - name: zipkin
+    version: "0.1.0"  
+    repository: "file://charts/zipkin"
+  - name: api-gateway
+    version: "0.1.0"
+    repository: "file://charts/api-gateway"
+  - name: order-service
+    version: "0.1.0"
+    repository: "file://charts/order-service"
+  - name: payment-service
+    version: "0.1.0"
+    repository: "file://charts/payment-service"
+  - name: proxy-client
+    version: "0.1.0"
+    repository: "file://charts/proxy-client"
+  - name: service-discovery
+    version: "0.1.0"
+    repository: "file://charts/service-discovery"
+  - name: shipping-service
+    version: "0.1.0"
+    repository: "file://charts/shipping-service"
+  - name: cloud-config
+    version: "0.1.0"
+    repository: "file://charts/cloud-config"
+  - name: favourite-service
+    version: "0.1.0"
+    repository: "file://charts/favourite-service"
+  - name: product-service
+    version: "0.1.0"
+    repository: "file://charts/product-service"
+  - name: user-service
+    version: "0.1.0"
+    repository: "file://charts/user-service"
