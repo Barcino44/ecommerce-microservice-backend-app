@@ -27,6 +27,30 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 	
 	private final UserDetailsService userDetailsService;
 	private final JwtService jwtService;
+
+	private static final List<String> EXCLUDED_PATHS = Arrays.asList(
+		"/app/actuator/prometheus",
+		"/app/actuator/metrics",
+		"/app/actuator/health",
+		"/app/actuator/info"
+	);
+	
+	
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+		String path = request.getRequestURI();
+		log.info("**Checking if path should be filtered: {}*", path);
+		
+		
+		boolean shouldSkip = EXCLUDED_PATHS.stream()
+			.anyMatch(excludedPath -> path.startsWith(excludedPath));
+		
+		if (shouldSkip) {
+			log.info("**Path {} is excluded from JWT filter*", path);
+		}
+		
+		return shouldSkip;
+	}
 	
 	@Override
 	protected void doFilterInternal(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) 
