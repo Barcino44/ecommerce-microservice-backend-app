@@ -1,62 +1,3 @@
-<<<<<<< HEAD:helm/ecommerce/charts/zipkin/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Release.Name }}-{{ .Chart.Name }}
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    app: {{ .Chart.Name }}
-spec:
-  replicas: {{.Values.global.replicaCount}}
-  selector:
-    matchLabels:
-      app: {{ .Chart.Name }}
-  template:
-    metadata:
-      labels:
-        app: {{ .Chart.Name }}
-      annotations:
-          {{- if .Values.prometheus.enabled }}
-          prometheus.io/scrape: "{{ .Values.prometheus.scrape }}"
-          prometheus.io/port: "{{ .Values.prometheus.port }}"
-          prometheus.io/path: "/{{ .Chart.Name }}{{ .Values.prometheus.path }}"
-          {{- end }} 
-    spec:
-      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
-      {{- if .Values.podSecurityContext.enabled }}
-      securityContext:
-        runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}
-        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
-        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
-        seccompProfile:
-          type: {{ .Values.podSecurityContext.seccompProfile.type }}
-      {{- end }}
-      containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
-          securityContext:
-            {{- if .Values.containerSecurityContext.enabled }}
-            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
-            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
-
-            capabilities:
-              drop:
-              {{- range .Values.containerSecurityContext.capabilities.drop }}
-                - {{ . }}
-              {{- end }}
-
-            seccompProfile:
-              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
-            {{- end }}
-          ports:
-            - containerPort: {{ .Values.service.port }}
-          {{- if .Values.config }}
-          envFrom:
-            - configMapRef:
-                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
-          {{- end }}
-=======
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -71,6 +12,12 @@ spec:
     metadata:
       labels:
         app: jaeger
+      annotations:
+          {{- if .Values.prometheus.enabled }}
+          prometheus.io/scrape: "{{ .Values.prometheus.scrape }}"
+          prometheus.io/port: "{{ .Values.prometheus.port }}"
+          prometheus.io/path: "/{{ .Chart.Name }}{{ .Values.prometheus.path }}"
+          {{- end }} 
     spec:
       serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
       {{- if .Values.podSecurityContext.enabled }}
@@ -110,4 +57,3 @@ spec:
               containerPort: {{ .Values.service.ports.otlpGrpc }}
             - name: otlp-http
               containerPort: {{ .Values.service.ports.otlpHttp }}
->>>>>>> fb18d16f92a57d7a8c9445be98480cc3d0d00fce:helm/ecommerce/charts/jaeger/templates/deployment.yaml
