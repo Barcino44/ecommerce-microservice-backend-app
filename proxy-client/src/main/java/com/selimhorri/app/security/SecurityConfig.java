@@ -43,16 +43,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 				.antMatchers("/api/authenticate/**").permitAll()
 				.antMatchers("/api/categories/**").permitAll()
 				.antMatchers("/api/products/**").permitAll()
-				 .antMatchers("/app/actuator/prometheus", "/app/actuator/prometheus/**",
-                         "/app/actuator/metrics", "/app/actuator/metrics/**",
-                         "/app/actuator/health", "/app/actuator/health/**",
-                         "/app/actuator/info", "/app/actuator/info/**")
+				.antMatchers("/app/actuator/prometheus", "/app/actuator/metrics",
+                         "/app/actuator/health", "/app/actuator/info")
                 .permitAll()
 				.antMatchers("/api/**")
 					.hasAnyRole(RoleBasedAuthority.ROLE_USER.getRole(), 
 							RoleBasedAuthority.ROLE_ADMIN.getRole())
+				.antMatchers("/actuator/health/**", "/actuator/info/**")
 					.permitAll()
-				.antMatchers("/app/actuator/**")
+				
 					.hasAnyRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
 				.anyRequest().authenticated()
 			.and()
