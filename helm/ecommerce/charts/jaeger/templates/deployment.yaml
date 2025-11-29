@@ -1,3 +1,4 @@
+<<<<<<< HEAD:helm/ecommerce/charts/zipkin/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -55,3 +56,58 @@ spec:
             - configMapRef:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-config
           {{- end }}
+=======
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: {{ .Values.global.replicaCount }}
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        runAsNonRoot: {{ .Values.podSecurityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.podSecurityContext.seccompProfile.type }}
+      {{- end }}
+      containers:
+        - name: jaeger
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--collector.zipkin.host-port=:{{ .Values.service.ports.zipkin }}"
+          securityContext:
+            {{- if .Values.containerSecurityContext.enabled }}
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+
+            capabilities:
+              drop:
+              {{- range .Values.containerSecurityContext.capabilities.drop }}
+                - {{ . }}
+              {{- end }}
+
+            seccompProfile:
+              type: {{ .Values.containerSecurityContext.seccompProfile.type }}
+            {{- end }}
+          ports:
+            - name: ui
+              containerPort: {{ .Values.service.ports.ui }}
+            - name: zipkin
+              containerPort: {{ .Values.service.ports.zipkin }}
+            - name: otlp-grpc
+              containerPort: {{ .Values.service.ports.otlpGrpc }}
+            - name: otlp-http
+              containerPort: {{ .Values.service.ports.otlpHttp }}
+>>>>>>> fb18d16f92a57d7a8c9445be98480cc3d0d00fce:helm/ecommerce/charts/jaeger/templates/deployment.yaml

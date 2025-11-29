@@ -244,7 +244,7 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
       
-      - name: Scan Docker image with Trivy
+      - name: Scan Docker image with Trivy (console output)
         uses: aquasecurity/trivy-action@0.11.2
         with:
           image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
@@ -252,6 +252,23 @@ jobs:
           exit-code: 0
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
+
+      - name: Scan Docker image with Trivy (HTML report)
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-${{ matrix.service }}.html
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.html
   # ============================================
   # 3. VALIDATE HELM CHARTS
   # ============================================
@@ -327,11 +344,11 @@ jobs:
           USER_SERVICE_TAG="0.1.0"
           PAYMENT_SERVICE_TAG="0.1.0"
           SHIPPING_SERVICE_TAG="0.1.0"
-          FAVOURITE_SERVICE_TAG="0.1.0"
+          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
           ORDER_SERVICE_TAG="0.1.0"
           PROXY_CLIENT_TAG="0.1.0"
-          SERVICE_DISCOVERY_TAG="feature-deploystrategies"
-          CLOUD_CONFIG_TAG="feature-deploystrategies"
+          SERVICE_DISCOVERY_TAG="feature-db"
+          CLOUD_CONFIG_TAG="feature-db"
           
           # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then

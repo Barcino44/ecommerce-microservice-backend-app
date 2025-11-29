@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-ecommerce-zipkin
+  namespace: {{ .Values.global.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: jaeger
+  ports:
+    - name: ui
+      port: {{ .Values.service.ports.ui }}
+      targetPort: {{ .Values.service.ports.ui }}
+    - name: zipkin
+      port: {{ .Values.service.ports.zipkin }}
+      targetPort: {{ .Values.service.ports.zipkin }}
+    - name: otlp-grpc
+      port: {{ .Values.service.ports.otlpGrpc }}
+      targetPort: {{ .Values.service.ports.otlpGrpc }}
+    - name: otlp-http
+      port: {{ .Values.service.ports.otlpHttp }}
+      targetPort: {{ .Values.service.ports.otlpHttp }}
