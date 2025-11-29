@@ -1,23 +1,19 @@
-{{- $active := .Values.deploymentStrategy.active}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-{{ .Chart.Name }}-green
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
   namespace: {{ .Values.global.namespace }}
   labels:
     app: {{ .Chart.Name }}
-    color: green
 spec:
-  replicas: {{ if eq $active "green" }}{{ .Values.global.replicaCount }}{{ else }}0{{ end }}
+  replicas: {{ .Values.global.replicaCount }}
   selector:
     matchLabels:
       app: {{ .Chart.Name }}
-      color: green
   template:
     metadata:
       labels:
         app: {{ .Chart.Name }}
-        color: green
     spec:
       serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
       {{- if .Values.podSecurityContext.enabled }}
@@ -28,16 +24,17 @@ spec:
         seccompProfile:
           type: {{ .Values.podSecurityContext.seccompProfile.type }}
       {{- end }}
+      {{- if .Values.hostAliases.enabled }}
+      hostAliases:
+        - ip: {{ .Values.hostAliases.ip }}
+          hostnames:
+            {{- range .Values.hostAliases.hostnames }}
+            - {{ . }}
+            {{- end }}
+      {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.green.image.repository }}:{{ .Values.green.image.tag }}"
-          resources:
-            requests:
-              cpu: {{ .Values.resources.requests.cpu }}
-              memory: {{ .Values.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.resources.limits.cpu }}
-              memory: {{ .Values.resources.limits.memory }}
+        - name: locust
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
@@ -52,16 +49,18 @@ spec:
             seccompProfile:
               type: {{ .Values.containerSecurityContext.seccompProfile.type }}
             {{- end }}
+          args:
+            - -f
+            - /mnt/locust/tasks.py
+            - --host={{ .Values.host }}
+            - --web-host={{ .Values.webHost | default "0.0.0.0" }}
+            - --web-port={{ .Values.webPort | default 8089 }}
           ports:
-            - containerPort: {{ .Values.service.port }}
-          {{- if or .Values.config .Values.secrets }}
-          envFrom:
-            {{- if .Values.config }}
-            - configMapRef:
-                name: {{ .Release.Name }}-{{ .Chart.Name }}-config
-            {{- end }}
-            {{- if .Values.secrets }}
-            - secretRef:
-                name: {{ .Release.Name }}-{{ .Chart.Name }}-secret
-            {{- end }}
-          {{- end }}
+            - containerPort: {{ .Values.webPort | default 8089 }}
+          volumeMounts:
+            - name: locust-tasks
+              mountPath: /mnt/locust
+      volumes:
+        - name: locust-tasks
+          configMap:
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-tasks

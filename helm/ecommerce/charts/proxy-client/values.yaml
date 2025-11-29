@@ -41,3 +41,22 @@ canary:
     repository: "barcino/proxy-client"
     tag: "0.1.0"
   replicaCount: 0 
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1500Mi"
+  limits:
+    cpu: "750m"
+    memory: "1800Mi"
+
+hpa:
+  stable:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    cpuAverage: 60
+    memoryAverage: 80
+
+  canary:
+    enabled: false 

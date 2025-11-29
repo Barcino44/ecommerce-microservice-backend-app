@@ -67,6 +67,13 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}

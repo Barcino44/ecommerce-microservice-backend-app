@@ -44,3 +44,17 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: "750m"
+    memory: "1500Mi"
+  limits:
+    cpu: "900m"
+    memory: "1800Mi"
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 1
+  cpuAverage: 60   
+  memoryAverage: 80  
