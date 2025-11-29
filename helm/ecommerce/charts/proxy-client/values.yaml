@@ -46,4 +46,4 @@ prometheus:
   enabled: true
   scrape: "true"
   port: 8900
-  path: "/actuator/prometheus"
+  path: "/app/actuator/prometheus"
