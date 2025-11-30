@@ -272,7 +272,7 @@ jobs:
   # 3. VALIDATE HELM CHARTS
   # ============================================
   validate-charts:
-    needs: build-docker-images
+    needs: [build-docker-images, set-env]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -300,13 +300,17 @@ jobs:
       - name: Helm lint ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm lint "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
+            helm lint "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "./helm/ecommerce/values-ci.yaml" \
+              --set global.targetEnvironment=ci
           fi
 
       - name: Render Helm template ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev > "helm-${{ matrix.service }}-rendered.yaml"
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "./helm/ecommerce/values-ci.yaml" \
+              --set global.targetEnvironment=ci > "helm-${{ matrix.service }}-rendered.yaml"
           fi
 
   # ============================================
@@ -418,8 +422,8 @@ jobs:
       - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-            --set global.targetEnvironment=dev \
+            -f ./helm/ecommerce/values-ci.yaml \
+            --set global.targetEnvironment=ci \
             --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
             --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
             --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
