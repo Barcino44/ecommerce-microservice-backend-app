@@ -42,7 +42,6 @@ canary:
     tag: "feature-monitoring"
   replicaCount: 0
 
-<<<<<<< HEAD
 resources:
   requests:
     cpu: "500m"
@@ -61,10 +60,8 @@ hpa:
 
   canary:
     enabled: false 
-=======
 prometheus:
   enabled: true
   scrape: "true"
   port: 8500
   path: "/actuator/prometheus"
->>>>>>> 45e408f8b12cf296a6fa6dcd52d01a8b83c1882e
