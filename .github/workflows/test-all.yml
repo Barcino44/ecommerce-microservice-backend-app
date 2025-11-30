@@ -303,14 +303,14 @@ jobs:
         run: |
           SERVICE_DISCOVERY_TAG="feature-monitoring"
           CLOUD_CONFIG_TAG="feature-monitoring"
-          API_GATEWAY_TAG="0.1.0"
+          API_GATEWAY_TAG="feature-monitoring"
           PRODUCT_SERVICE_TAG="feature-monitoring"
           USER_SERVICE_TAG="feature-monitoring"
           PAYMENT_SERVICE_TAG="feature-monitoring"
           SHIPPING_SERVICE_TAG="feature-monitoring"
-          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
+          FAVOURITE_SERVICE_TAG="feature-hpa"
           ORDER_SERVICE_TAG="feature-monitoring"
-          PROXY_CLIENT_TAG="0.1.0"
+          PROXY_CLIENT_TAG="feature-monitoring"
           
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^service-discovery/"; then

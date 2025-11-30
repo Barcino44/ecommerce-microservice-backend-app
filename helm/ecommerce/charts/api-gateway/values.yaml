@@ -49,7 +49,7 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/api-gateway"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:

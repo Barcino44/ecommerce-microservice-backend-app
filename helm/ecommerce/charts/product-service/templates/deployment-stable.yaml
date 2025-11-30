@@ -70,14 +70,10 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
-          {{- if .Values.resources }}
+          {{- with .Values.resources }}
           resources:
-            requests:
-              cpu: {{ .Values.resources.requests.cpu }}
-              memory: {{ .Values.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.resources.limits.cpu }}
-              memory: {{ .Values.resources.limits.memory }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if .Values.containerSecurityContext.enabled }}
           securityContext:
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}

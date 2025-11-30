@@ -73,14 +73,11 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
-          {{- if .Values.resources }}
+
+          {{- with .Values.resources }}
           resources:
-            requests:
-              cpu: {{ .Values.resources.requests.cpu }}
-              memory: {{ .Values.resources.requests.memory }}
-            limits:
-              cpu: {{ .Values.resources.limits.cpu }}
-              memory: {{ .Values.resources.limits.memory }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
