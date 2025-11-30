@@ -370,17 +370,7 @@ jobs:
             --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
             --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
             --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }}
-            # ==== TAGS DETECTADOS ====
-            --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
-            --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
-            --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
-            --set product-service.image.tag=${{ steps.detect-changes.outputs.product-service-tag }} \
-            --set user-service.image.tag=${{ steps.detect-changes.outputs.user-service-tag }} \
-            --set payment-service.image.tag=${{ steps.detect-changes.outputs.payment-service-tag }} \
-            --set shipping-service.image.tag=${{ steps.detect-changes.outputs.shipping-service-tag }} \
-            --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
-            --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
-            --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }}
+
 
       # ===== EUREKA & CLOUD CONFIG =====
 
