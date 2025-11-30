@@ -341,7 +341,7 @@ jobs:
         id: detect-changes
         run: |
           # Tags estables por defecto
-          API_GATEWAY_TAG="0.1.0"
+          API_GATEWAY_TAG="feature-monitoring"
           PRODUCT_SERVICE_TAG="feature-monitoring"
           USER_SERVICE_TAG="feature-monitoring"
           PAYMENT_SERVICE_TAG="feature-monitoring"
@@ -503,7 +503,7 @@ jobs:
           
           echo "=== Test Eureka Registry ==="
           kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-          
+     
       - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found
