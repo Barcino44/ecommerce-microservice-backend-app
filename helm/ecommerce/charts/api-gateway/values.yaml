@@ -55,6 +55,11 @@ stable:
 canary:
   image:
     repository: "barcino/api-gateway"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 0
 
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"

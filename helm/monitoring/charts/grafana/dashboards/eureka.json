@@ -1,0 +1,127 @@
+{
+  "id": null,
+  "uid": "eureka-monitoring",
+  "title": "Eureka Service Discovery Monitoring",
+  "tags": ["eureka", "service-discovery", "spring-cloud"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(namespace)",
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Namespace"
+      }
+    ]
+  },
+
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Eureka Server Status",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 5 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "up{job=\"eureka\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red" },
+                "1": { "text": "UP", "color": "green" }
+              }
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "type": "stat",
+      "title": "Registered Instances",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 5 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "eureka_registered_apps_total",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Heartbeats Received",
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 7 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(eureka_client_heartbeat_count[1m])",
+          "legendFormat": "Heartbeats",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Failed Registrations",
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 7 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(eureka_client_registration_failures_total[5m])",
+          "legendFormat": "Failed Registrations",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Eureka Response Time (seconds)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{job=\"eureka\"}[5m]) / rate(http_server_requests_seconds_count{job=\"eureka\"}[5m])",
+          "legendFormat": "Response Time",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "JVM Memory (Eureka Server)",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"eureka\", area=\"heap\"}",
+          "legendFormat": "Heap Used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{job=\"eureka\", area=\"heap\"}",
+          "legendFormat": "Heap Max",
+          "refId": "B"
+        }
+      ]
+    }
+  ]
+}

@@ -15,7 +15,8 @@ service:
     zipkin: 9411
     otlpGrpc: 14250
     otlpHttp: 14268
-
+    metrics: 14269
+    
 podSecurityContext:
   enabled: true
   runAsNonRoot: true
@@ -33,3 +34,9 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 14269
+  path: "/metrics"

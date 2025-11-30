@@ -37,11 +37,17 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/favourite-service"
-    tag: "feature-sealedsecret"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/favourite-service"
-    tag: "feature-sealedsecret"
+    tag: "feature-monitoring"
   replicaCount: 0  
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8800
+  path: "/actuator/prometheus"

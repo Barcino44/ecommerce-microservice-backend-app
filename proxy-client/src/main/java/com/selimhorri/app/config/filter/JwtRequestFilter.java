@@ -14,7 +14,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
+import java.util.Arrays;  
+import java.util.List; 
 import com.selimhorri.app.jwt.service.JwtService;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,25 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 	
 	private final UserDetailsService userDetailsService;
 	private final JwtService jwtService;
+
+	private static final List<String> EXCLUDED_PATHS = Arrays.asList(
+        "/app/actuator/prometheus",
+        "/app/actuator/metrics",
+        "/app/actuator/health",
+        "/app/actuator/info",
+        "/app/actuator"
+	);
+
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		String path = request.getRequestURI();
+
+		boolean excluded = EXCLUDED_PATHS.stream()
+				.anyMatch(path::startsWith);
+
+		return excluded;
+	}
+
 	
 	@Override
 	protected void doFilterInternal(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) 

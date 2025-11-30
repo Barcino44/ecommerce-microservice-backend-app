@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-deploystrategies"
+    tag: "feature-monitoring"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-deploystrategies"
+    tag: "feature-monitoring"
 serviceAccount:
   create: true
   automount: false
@@ -44,3 +44,9 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 9296
+  path: "/actuator/prometheus"

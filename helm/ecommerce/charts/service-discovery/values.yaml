@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/service-discovery"
-    tag: "feature-deploystrategies"
+    tag:  "feature-monitoring"
 
 green:
   image:
     repository: "barcino/service-discovery"
-    tag: "feature-deploystrategies"
+    tag: "feature-monitoring"
 serviceAccount:
   create: true
   automount: false
@@ -42,3 +42,8 @@ deploymentStrategy:
   type: blue-green
   active: blue 
 
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8761
+  path: "/actuator/prometheus"
