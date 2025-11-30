@@ -39,5 +39,4 @@ data:
     [auth.anonymous]
     enabled = false
     
-    [dashboards]
-    default_home_dashboard_path = /var/lib/grafana/dashboards/springboot/spring-boot-metrics.js
+    

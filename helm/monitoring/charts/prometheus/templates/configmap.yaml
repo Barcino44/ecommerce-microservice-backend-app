@@ -141,9 +141,9 @@ data:
 
 
       # ============================================
-      # ZIPKIN
+      # JAEGER
       # ============================================
-      - job_name: "zipkin"
+      - job_name: "jaeger"
         kubernetes_sd_configs:
           - role: pod
             namespaces:
@@ -159,22 +159,28 @@ data:
                 {{- end }}
 
         relabel_configs:
+          # solo pods con label app=jaeger
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
-            regex: zipkin
+            regex: jaeger
 
+          # scrape endpoint
           - source_labels: [__meta_kubernetes_pod_ip]
-            replacement: "$1:9411"
+            replacement: "$1:14269"
             target_label: __address__
 
+          # tag service
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: service
 
+          # namespace
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
 
+          # path de métricas
           - target_label: __metrics_path__
-            replacement: /prometheus
+            replacement: /metrics
+
 
 
       # ============================================

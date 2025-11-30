@@ -7,16 +7,4 @@ metadata:
     app: {{ .Chart.Name }}
 data:
   datasources.yaml: |
-    apiVersion: 1
-    datasources:
-    {{- range .Values.datasources }}
-      - name: {{ .name }}
-        type: {{ .type }}
-        access: {{ .access }}
-        url: {{ .url }}
-        isDefault: {{ .isDefault }}
-        editable: {{ .editable }}
-        jsonData:
-          timeInterval: "15s"
-          httpMethod: "GET"
-    {{- end }}
+{{ tpl (.Files.Get "provisioning/datasources.yaml") . | indent 4 }}

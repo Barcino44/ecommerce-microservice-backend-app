@@ -43,8 +43,23 @@ spec:
             - sh
             - -c
             - |
+              echo "Creating dashboard directories..."
               mkdir -p /dashboards/springboot
-              cp /tmp/dashboards/* /dashboards/springboot/ || true
+              
+              echo "Listing dashboard files..."
+              ls -la /tmp/dashboards/
+              
+              echo "Copying dashboards..."
+              for file in /tmp/dashboards/*; do
+                if [ -f "$file" ]; then
+                  echo "Copying $(basename $file)..."
+                  cp "$file" /dashboards/springboot/
+                fi
+              done
+              
+              echo "Dashboard copy complete. Contents:"
+              ls -la /dashboards/springboot/
+      
           volumeMounts:
             - name: dashboards-files
               mountPath: /tmp/dashboards
@@ -83,8 +98,8 @@ spec:
               subPath: datasources.yaml
 
             - name: provisioning-dashboards
-              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
-              subPath: dashboards.yaml
+              mountPath: /etc/grafana/provisioning/dashboards/dashboard.yaml
+              subPath: dashboard.yaml
 
             - name: storage
               mountPath: /var/lib/grafana
@@ -96,9 +111,6 @@ spec:
           configMap:
             name: {{ .Release.Name }}-{{ .Chart.Name }}-config
 
-        - name: datasources
-          configMap:
-            name: {{ .Release.Name }}-{{ .Chart.Name }}-datasources
 
         - name: dashboards-files
           configMap:
@@ -118,9 +130,8 @@ spec:
           configMap:
             name: {{ .Release.Name }}-{{ .Chart.Name }}-provisioning
             items:
-              - key: dashboards.yaml
-                path: dashboards.yaml
-
+              - key: dashboard.yaml
+                path: dashboard.yaml
 
         - name: storage
           persistentVolumeClaim:

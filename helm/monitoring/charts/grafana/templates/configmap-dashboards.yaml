@@ -6,10 +6,10 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     app: {{ .Chart.Name }}
-    grafana_dashboard: "1"
-binaryData:
+data:
 {{- $files := .Files }}
-{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
-  {{ base $path }}: {{ $files.Get $path | b64enc }}
+{{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $files.Get $path | indent 4 }}
 {{- end }}
 {{- end }}

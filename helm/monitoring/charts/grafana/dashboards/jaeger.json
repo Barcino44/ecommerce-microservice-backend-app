@@ -1,0 +1,89 @@
+{
+  "id": null,
+  "uid": "jaeger-dashboard",
+  "title": "Jaeger Distributed Tracing Monitoring",
+  "tags": ["jaeger", "tracing", "observability"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "refresh": "10s",
+  "version": 1,
+
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Received Spans",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(jaeger_collector_spans_received_total[1m])",
+          "legendFormat": "spans/s"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Dropped Spans",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(jaeger_collector_spans_dropped_total[1m])",
+          "legendFormat": "dropped/s"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Queue Length",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jaeger_collector_queue_length",
+          "legendFormat": "queue"
+        }
+      ]
+    },
+
+    {
+      "type": "graph",
+      "title": "Spans by Transport",
+      "gridPos": { "x": 0, "y": 3, "w": 12, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(jaeger_collector_spans_received_total[1m])",
+          "legendFormat": "{{transport}}"
+        }
+      ]
+    },
+
+    {
+      "type": "graph",
+      "title": "Ingest Errors",
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(jaeger_collector_errors_total[1m])",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+
+    {
+      "type": "table",
+      "title": "Jaeger Instances",
+      "gridPos": { "x": 0, "y": 11, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jaeger_collector_spans_received_total",
+          "instant": true,
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    }
+  ]
+}

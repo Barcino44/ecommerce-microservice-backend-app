@@ -38,12 +38,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 		http.cors().disable()
 			.csrf().disable()
 			.authorizeRequests()
-				.antMatchers(HttpMethod.GET, "/app/actuator/prometheus").permitAll()
-				.antMatchers(HttpMethod.GET, "/app/actuator/metrics").permitAll()
-				.antMatchers(HttpMethod.GET, "/app/actuator/metrics/**").permitAll()
-				.antMatchers(HttpMethod.GET, "/app/actuator/health").permitAll()
-				.antMatchers(HttpMethod.GET, "/app/actuator/health/**").permitAll()
-				.antMatchers(HttpMethod.GET, "/app/actuator/info").permitAll()
+				.antMatchers(
+						"/app/actuator/health/**",
+						"/app/actuator/info",
+						"/app/actuator/prometheus",
+						"/app/actuator/metrics/**"
+				).permitAll()
 				.antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.antMatchers("/", "index", "**/css/**", "**/js/**").permitAll()
 				.antMatchers("/api/authenticate/**").permitAll()
@@ -53,7 +53,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 					.hasAnyRole(RoleBasedAuthority.ROLE_USER.getRole(), 
 							RoleBasedAuthority.ROLE_ADMIN.getRole())
 				.antMatchers("/app/actuator/**")
-					.permitAll()
+    				.hasAnyRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
 				.anyRequest().authenticated()
 			.and()
 			.headers()
