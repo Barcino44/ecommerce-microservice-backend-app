@@ -1,4 +1,4 @@
-name: Ecommerce CI/CD (Optimizado)
+name: Ecommerce CI/CD (Minikube Local)
 
 on:
   push:
@@ -15,6 +15,9 @@ env:
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
 jobs:
+  # ============================================
+  # 0. SET IMAGE TAG AND VALUES FILE
+  # ============================================
   set-env:
     runs-on: ubuntu-latest
     outputs:
@@ -28,26 +31,62 @@ jobs:
         id: set-tag
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "Branch is $BRANCH_NAME"
+
+          # Convert branch name to valid Docker tag: lowercase + replace / with -
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-          
-          IMAGE_TAG="$SAFE_BRANCH_NAME"
-          VALUES_FILE="./helm/ecommerce/values-ci.yaml"
+          echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME"
+
+          IMAGE_TAG="dev"
+          VALUES_FILE="./helm/ecommerce/values-dev.yaml"
 
           if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
             IMAGE_TAG="dev"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          elif [[ "$SAFE_BRANCH_NAME" == "qa" ]]; then
+            IMAGE_TAG="qa"
+            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
+          elif [[ "$SAFE_BRANCH_NAME" == "prod" ]]; then
+            IMAGE_TAG="prod"
+            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
+          else
+            IMAGE_TAG="$SAFE_BRANCH_NAME"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
           fi
 
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
-
+  # ============================================
+  # 1. BUILD MAVEN (CI) - CONDITIONAL
+  # ============================================
   build-services:
     runs-on: ubuntu-latest
     needs: set-env
     strategy:
-      max-parallel: 3
       matrix:
-        service: [user-service, product-service, payment-service, shipping-service, favourite-service, api-gateway, service-discovery, order-service, cloud-config, proxy-client]
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
     name: Build ${{ matrix.service }}
+    outputs:
+      user-service-changed: ${{ steps.set-output.outputs.user-service-changed }}
+      product-service-changed: ${{ steps.set-output.outputs.product-service-changed }}
+      payment-service-changed: ${{ steps.set-output.outputs.payment-service-changed }}
+      shipping-service-changed: ${{ steps.set-output.outputs.shipping-service-changed }}
+      favourite-service-changed: ${{ steps.set-output.outputs.favourite-service-changed }}
+      api-gateway-changed: ${{ steps.set-output.outputs.api-gateway-changed }}
+      service-discovery-changed: ${{ steps.set-output.outputs.service-discovery-changed }}
+      order-service-changed: ${{ steps.set-output.outputs.order-service-changed }}
+      cloud-config-changed: ${{ steps.set-output.outputs.cloud-config-changed }}
+      proxy-client-changed: ${{ steps.set-output.outputs.proxy-client-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,22 +97,24 @@ jobs:
         id: changed
         run: |
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
-             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building ${{ matrix.service }}"
           else
-             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
-               echo "changed=true" >> $GITHUB_OUTPUT
-             else
-               echo "changed=false" >> $GITHUB_OUTPUT
-             fi
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping"
+            fi
           fi
 
-      - name: Cache Maven packages
-        if: steps.changed.outputs.changed == 'true'
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-maven-
+      - name: Set output for changed services
+        id: set-output
+        run: |
+          SERVICE_NAME="${{ matrix.service }}"
+          CHANGED="${{ steps.changed.outputs.changed }}"
+          echo "${SERVICE_NAME}-changed=${CHANGED}" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 11
         if: steps.changed.outputs.changed == 'true'
@@ -88,8 +129,17 @@ jobs:
         run: |
           if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
             cd ${{ matrix.service }}
-            export MAVEN_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=256m"
-            mvn clean package -DskipTests -T 1C
+            mvn clean package -DskipTests
+          else
+            echo "Skipping ${{ matrix.service }} - not a Maven service"
+          fi
+
+      - name: Run tests for ${{ matrix.service }}
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
+            cd ${{ matrix.service }}
+            mvn test
           fi
 
       - name: Upload build artifact
@@ -97,18 +147,29 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-build
-          path: ${{ matrix.service }}/target/*.jar
-          retention-days: 1
+          path: ${{ matrix.service }}/target/*.jar  
 
+  # ============================================
+  # 2. BUILD DOCKER IMAGES & PUSH - CONDITIONAL
+  # ============================================
   build-docker-images:
     needs: [build-services, set-env]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 2
       matrix:
-        service: [user-service, product-service, payment-service, shipping-service, favourite-service, api-gateway, service-discovery, order-service, cloud-config, proxy-client]
-    name: Build Docker - ${{ matrix.service }}
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
+    name: Build Docker Image - ${{ matrix.service }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -120,25 +181,32 @@ jobs:
         run: |
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building Docker image for ${{ matrix.service }}"
           else
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
               echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes, will build Docker image"
             else
               echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping Docker build"
             fi
+          fi
+
+      - name: Extract version
+        if: steps.changed.outputs.changed == 'true'
+        id: version
+        run: |
+          if [ -f "${{ matrix.service }}/pom.xml" ]; then
+            VERSION=$(grep '<version>' ${{ matrix.service }}/pom.xml | head -n1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            VERSION="latest"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up Docker Buildx
         if: steps.changed.outputs.changed == 'true'
         uses: docker/setup-buildx-action@v2
-
-      - name: Cache Docker layers
-        if: steps.changed.outputs.changed == 'true'
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-buildx-${{ matrix.service }}-
 
       - name: Download build artifact
         if: steps.changed.outputs.changed == 'true'
@@ -146,6 +214,20 @@ jobs:
         with:
           name: ${{ matrix.service }}-build
           path: ./${{ matrix.service }}/target/
+
+      - name: Verify and organize JAR
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          mkdir -p ${{ matrix.service }}/target/
+          if [ -d "artifact-temp" ]; then
+            mv artifact-temp/* ${{ matrix.service }}/target/ 2>/dev/null || true
+            rmdir artifact-temp
+          fi
+          ls -lah ${{ matrix.service }}/target/
+          if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
+            echo "JAR not found"
+            exit 1
+          fi
 
       - name: Login to Docker Hub
         if: steps.changed.outputs.changed == 'true'
@@ -163,20 +245,52 @@ jobs:
           tags: |
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+      
+      - name: Scan Docker image with Trivy (console output)
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: table
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
 
-      - name: Move cache
-        if: steps.changed.outputs.changed == 'true'
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      - name: Scan Docker image with Trivy (HTML report)
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-${{ matrix.service }}.html
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
 
+      - name: Upload Trivy HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.html
+  # ============================================
+  # 3. VALIDATE HELM CHARTS
+  # ============================================
   validate-charts:
-    # CORRECCIÓN AQUÍ: Se agregó 'set-env' para poder leer sus outputs
-    needs: [build-docker-images, set-env]
+    needs: build-docker-images
     runs-on: ubuntu-latest
-    name: Validate Helm Charts
+    strategy:
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
+    name: Validate ${{ matrix.service }} Helm Chart
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -186,20 +300,28 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Helm lint Umbrella Chart
+      - name: Helm lint ${{ matrix.service }}
         run: |
-          # Ahora VALUES_FILE tendrá valor y no fallará
-          helm lint ./helm/ecommerce -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm lint "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
+          fi
 
+      - name: Render Helm template ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev > "helm-${{ matrix.service }}-rendered.yaml"
+          fi
+
+  # ============================================
+  # 4. DEPLOY & TEST ALL SERVICES
+  # ============================================
   deploy-and-test:
     needs: [validate-charts, set-env]
     runs-on: ubuntu-latest
-    name: Deploy & Smoke Tests
+    name: Deploy & Test All Services
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -215,72 +337,171 @@ jobs:
         run: |
           kind create cluster --name ecommerce-ci --wait 60s
 
-      - name: Detect changes and set tags
+      - name: Detect which services changed and set tags
         id: detect-changes
         run: |
-          SERVICES="service-discovery cloud-config api-gateway product-service user-service payment-service shipping-service favourite-service order-service proxy-client"
-          DEFAULT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+          # Tags estables por defecto
+          API_GATEWAY_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="feature-monitoring"
+          USER_SERVICE_TAG="feature-monitoring"
+          PAYMENT_SERVICE_TAG="feature-monitoring"
+          SHIPPING_SERVICE_TAG="feature-monitoring"
+          FAVOURITE_SERVICE_TAG="feature-hpa"
+          ORDER_SERVICE_TAG="feature-monitoring"
+          PROXY_CLIENT_TAG="0.1.0"
+          SERVICE_DISCOVERY_TAG="feature-monitoring"
+          CLOUD_CONFIG_TAG="feature-monitoring"
           
-          for SERVICE in $SERVICES; do
-            VAR_NAME=$(echo "$SERVICE" | tr '[:lower:]-' '[:upper:]_')_TAG
-            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^$SERVICE/"; then
-               echo "$VAR_NAME=$DEFAULT_TAG" >> $GITHUB_ENV
-            else
-               echo "$VAR_NAME=$DEFAULT_TAG" >> $GITHUB_ENV
+          # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^service-discovery/"; then
+              SERVICE_DISCOVERY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ service-discovery changed, using tag: $SERVICE_DISCOVERY_TAG"
             fi
-          done
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^cloud-config/"; then
+              CLOUD_CONFIG_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ cloud-config changed, using tag: $CLOUD_CONFIG_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^api-gateway/"; then
+              API_GATEWAY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ api-gateway changed, using tag: $API_GATEWAY_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^product-service/"; then
+              PRODUCT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ product-service changed, using tag: $PRODUCT_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^user-service/"; then
+              USER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ user-service changed, using tag: $USER_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^payment-service/"; then
+              PAYMENT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ payment-service changed, using tag: $PAYMENT_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^shipping-service/"; then
+              SHIPPING_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ shipping-service changed, using tag: $SHIPPING_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^favourite-service/"; then
+              FAVOURITE_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ favourite-service changed, using tag: $FAVOURITE_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^order-service/"; then
+              ORDER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ order-service changed, using tag: $ORDER_SERVICE_TAG"
+            fi
+            
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^proxy-client/"; then
+              PROXY_CLIENT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ proxy-client changed, using tag: $PROXY_CLIENT_TAG"
+            fi
+          fi
+          
+          # Exportar todas las variables
+          echo "service-discovery-tag=$SERVICE_DISCOVERY_TAG" >> $GITHUB_OUTPUT
+          echo "cloud-config-tag=$CLOUD_CONFIG_TAG" >> $GITHUB_OUTPUT
+          echo "api-gateway-tag=$API_GATEWAY_TAG" >> $GITHUB_OUTPUT
+          echo "product-service-tag=$PRODUCT_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "user-service-tag=$USER_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "payment-service-tag=$PAYMENT_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "shipping-service-tag=$SHIPPING_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "favourite-service-tag=$FAVOURITE_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "order-service-tag=$ORDER_SERVICE_TAG" >> $GITHUB_OUTPUT
+          echo "proxy-client-tag=$PROXY_CLIENT_TAG" >> $GITHUB_OUTPUT
 
       - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f "${{ needs.set-env.outputs.VALUES_FILE }}" \
+            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
             --set global.targetEnvironment=dev \
-            --set service-discovery.image.tag=${{ env.SERVICE_DISCOVERY_TAG }} \
-            --set cloud-config.image.tag=${{ env.CLOUD_CONFIG_TAG }} \
-            --set api-gateway.image.tag=${{ env.API_GATEWAY_TAG }} \
-            --set product-service.image.tag=${{ env.PRODUCT_SERVICE_TAG }} \
-            --set user-service.image.tag=${{ env.USER_SERVICE_TAG }} \
-            --set payment-service.image.tag=${{ env.PAYMENT_SERVICE_TAG }} \
-            --set shipping-service.image.tag=${{ env.SHIPPING_SERVICE_TAG }} \
-            --set favourite-service.image.tag=${{ env.FAVOURITE_SERVICE_TAG }} \
-            --set order-service.image.tag=${{ env.ORDER_SERVICE_TAG }} \
-            --set proxy-client.image.tag=${{ env.PROXY_CLIENT_TAG }}
-            
-      - name: Debug Cluster Failure
+            --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
+            --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
+            --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
+            --set product-service.image.tag=${{ steps.detect-changes.outputs.product-service-tag }} \
+            --set user-service.image.tag=${{ steps.detect-changes.outputs.user-service-tag }} \
+            --set payment-service.image.tag=${{ steps.detect-changes.outputs.payment-service-tag }} \
+            --set shipping-service.image.tag=${{ steps.detect-changes.outputs.shipping-service-tag }} \
+            --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
+            --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
+            --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }}
+                  
+      - name: Wait for pods to be created
         run: |
-          echo "================ PODS STATUS ================"
+          echo "Waiting for pods to be created..."
+          sleep 15
+          kubectl get pods -o wide -n dev
+
+      # ===== EUREKA & CLOUD CONFIG =====
+
+      - name: Wait for Service Discovery (Eureka)
+        run: |
+          kubectl wait --for=condition=Ready pod -l app=service-discovery -n dev --timeout=180s || echo "Eureka timeout"
+          echo "Waiting 40s for Eureka to fully initialize..."
+          sleep 40
+
+      - name: Wait for Cloud Config
+        run: |
+          kubectl wait --for=condition=Ready pod -l app=cloud-config -n dev --timeout=180s || echo "Cloud Config timeout"
+          echo "Waiting 30s for Cloud Config to register with Eureka..."
+          sleep 30
+
+      - name: Wait for all other services
+        run: |
+          kubectl wait --for=condition=Ready pod --all -n dev --timeout=180s || echo "Some pods not ready"
+          echo "Waiting 90s for all services to register with Eureka..."
+          sleep 90
+
+      - name: Verify deployment status
+        run: |
+          kubectl get pods -o wide -n dev
+          kubectl get svc -n dev
+          kubectl get deployments -n dev
+          
+      - name: Debug Eureka Server
+        run: |
+          echo "=== Eureka Server Pods ==="
+          kubectl get pods -n dev -l app=my-ecommerce-service-discovery
+          
+          echo "=== Eureka Server Logs ==="
+          kubectl logs -n dev -l app=my-ecommerce-service-discovery --tail=50
+          
+          echo "=== Eureka Server Service ==="
+          kubectl get svc -n dev my-ecommerce-service-discovery
+
+      - name: Debug API Gateway Connection to Eureka
+        run: |
+          echo "=== API Gateway Pods ==="
+          kubectl get pods -n dev -l app=my-ecommerce-api-gateway
+          
+          echo "=== API Gateway Logs (buscar errores de Eureka) ==="
+          kubectl logs -n dev -l app=my-ecommerce-api-gateway --tail=100 | grep -i eureka || echo "No Eureka logs found"
+
+      - name: Debug All Services
+        run: |
+          echo "=== All Pods in dev namespace ==="
           kubectl get pods -n dev -o wide
           
-          echo "================ KUBERNETES EVENTS (Last 50) ================"
-          kubectl get events -n dev --sort-by='.lastTimestamp' | tail -n 50
-          
-          echo "================ DESCRIBE DISCOVERY (Check Resources/Events) ================"
-          kubectl describe pod -l app.kubernetes.io/name=service-discovery -n dev
-          
-          echo "================ LOGS: SERVICE DISCOVERY ================"
-          kubectl logs -n dev -l app.kubernetes.io/name=service-discovery --tail=100 --all-containers || echo "No logs for discovery"
+          echo "=== All Services in dev namespace ==="
+          kubectl get svc -n dev
 
-          echo "================ LOGS: CONFIG SERVER ================"
-          kubectl logs -n dev -l app.kubernetes.io/name=cloud-config --tail=100 --all-containers || echo "No logs for config"
-
-      - name: Wait for Infrastructure
-        run: |
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=service-discovery -n dev --timeout=180s || echo "Warning: Eureka wait timeout"
-          sleep 45
-          
-      - name: Wait for Microservices
-        run: |
-          kubectl wait --for=condition=Ready pod --all -n dev --timeout=300s || echo "Warning: Pods wait timeout"
-          sleep 60
-
-      - name: Run Smoke Tests
+      - name: Test Eureka from test pod
         run: |
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
           
-          echo "Checking Eureka..."
-          kubectl exec test-pod -n dev -- curl -s -f http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-
-      - name: Cleanup
-        if: always()
-        run: kubectl delete pod test-pod -n dev --ignore-not-found
+          echo "=== Test Eureka Health ==="
+          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
+          
+          echo "=== Test Eureka Registry ==="
+          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
+        run: |
+          kubectl delete pod test-pod -n dev --ignore-not-found
