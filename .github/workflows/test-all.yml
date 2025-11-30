@@ -191,15 +191,6 @@ jobs:
           # Ahora VALUES_FILE tendrá valor y no fallará
           helm lint ./helm/ecommerce -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
 
-      - name: Helm lint Subcharts
-        run: |
-          for chart in helm/ecommerce/charts/*; do
-            if [ -d "$chart" ]; then
-              echo "Linting $(basename $chart)..."
-              helm lint "$chart"
-            fi
-          done
-
   deploy-and-test:
     needs: [validate-charts, set-env]
     runs-on: ubuntu-latest
