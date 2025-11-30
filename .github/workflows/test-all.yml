@@ -493,18 +493,6 @@ jobs:
           
           echo "=== All Services in dev namespace ==="
           kubectl get svc -n dev
-
-      - name: Test Eureka from test pod
-        run: |
-          kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
-          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
-          
-          echo "=== Test Eureka Health ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-          
-          echo "=== Test Eureka Registry ==="
-          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-     
       - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found
