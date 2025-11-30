@@ -1,10 +1,7 @@
-name: Ecommerce CI/CD (Optimizado)
+name: Ecommerce CI/CD (Minikube Local)
 
 on:
   push:
-    branches-ignore:
-      - prod
-      - qa
   pull_request:
     branches: [ master, dev ]
 
@@ -15,6 +12,9 @@ env:
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
 jobs:
+  # ============================================
+  # 0. SET IMAGE TAG AND VALUES FILE
+  # ============================================
   set-env:
     runs-on: ubuntu-latest
     outputs:
@@ -28,28 +28,25 @@ jobs:
         id: set-tag
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "Branch is $BRANCH_NAME"
+
+          # Convert branch name to valid Docker tag: lowercase + replace / with -
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-          
+          echo "SAFE_BRANCH_NAME=$SAFE_BRANCH_NAME"
+
           IMAGE_TAG="dev"
           VALUES_FILE="./helm/ecommerce/values-ci.yaml"
-
-          if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
-            IMAGE_TAG="dev"
-            VALUES_FILE="./helm/ecommerce/values-ci.yaml"
-          else
-            IMAGE_TAG="$SAFE_BRANCH_NAME"
-            VALUES_FILE="./helm/ecommerce/values-ci.yaml"
-          fi
 
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
 
-  # OPTIMIZACIÓN 1: Reducir paralelismo con max-parallel
+  # ============================================
+  # 1. BUILD MAVEN (CI) - CONDITIONAL
+  # ============================================
   build-services:
     runs-on: ubuntu-latest
     needs: set-env
     strategy:
-      max-parallel: 3  # Solo 3 builds simultáneos en vez de 10
       matrix:
         service:
           - user-service
@@ -63,6 +60,17 @@ jobs:
           - cloud-config
           - proxy-client
     name: Build ${{ matrix.service }}
+    outputs:
+      user-service-changed: ${{ steps.set-output.outputs.user-service-changed }}
+      product-service-changed: ${{ steps.set-output.outputs.product-service-changed }}
+      payment-service-changed: ${{ steps.set-output.outputs.payment-service-changed }}
+      shipping-service-changed: ${{ steps.set-output.outputs.shipping-service-changed }}
+      favourite-service-changed: ${{ steps.set-output.outputs.favourite-service-changed }}
+      api-gateway-changed: ${{ steps.set-output.outputs.api-gateway-changed }}
+      service-discovery-changed: ${{ steps.set-output.outputs.service-discovery-changed }}
+      order-service-changed: ${{ steps.set-output.outputs.order-service-changed }}
+      cloud-config-changed: ${{ steps.set-output.outputs.cloud-config-changed }}
+      proxy-client-changed: ${{ steps.set-output.outputs.proxy-client-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -74,23 +82,23 @@ jobs:
         run: |
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building ${{ matrix.service }}"
           else
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
               echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes"
             else
               echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping"
             fi
           fi
 
-      # OPTIMIZACIÓN 2: Cache de Maven más agresivo
-      - name: Cache Maven packages
-        if: steps.changed.outputs.changed == 'true'
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Set output for changed services
+        id: set-output
+        run: |
+          SERVICE_NAME="${{ matrix.service }}"
+          CHANGED="${{ steps.changed.outputs.changed }}"
+          echo "${SERVICE_NAME}-changed=${CHANGED}" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 11
         if: steps.changed.outputs.changed == 'true'
@@ -100,15 +108,14 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
-      # OPTIMIZACIÓN 3: Build con opciones de memoria
       - name: Build ${{ matrix.service }}
         if: steps.changed.outputs.changed == 'true'
         run: |
           if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
             cd ${{ matrix.service }}
-            # Limitar memoria de Maven
-            export MAVEN_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=256m"
-            mvn clean package -DskipTests -T 1C  # -T 1C usa 1 thread por core
+            mvn clean package -DskipTests
+          else
+            echo "Skipping ${{ matrix.service }} - not a Maven service"
           fi
 
       - name: Run tests for ${{ matrix.service }}
@@ -116,7 +123,6 @@ jobs:
         run: |
           if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
             cd ${{ matrix.service }}
-            export MAVEN_OPTS="-Xmx512m"
             mvn test
           fi
 
@@ -125,16 +131,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-build
-          path: ${{ matrix.service }}/target/*.jar
-          retention-days: 1  # Solo 1 día de retención
+          path: ${{ matrix.service }}/target/*.jar  
 
-  # OPTIMIZACIÓN 4: Reducir paralelismo en Docker builds
+  # ============================================
+  # 2. BUILD DOCKER IMAGES & PUSH - CONDITIONAL
+  # ============================================
   build-docker-images:
     needs: [build-services, set-env]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 2  # Solo 2 builds Docker simultáneos
       matrix:
         service:
           - user-service
@@ -159,11 +165,14 @@ jobs:
         run: |
           if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ First commit or no previous commit, building Docker image for ${{ matrix.service }}"
           else
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${{ matrix.service }}/"; then
               echo "changed=true" >> $GITHUB_OUTPUT
+              echo "✅ ${{ matrix.service }} has changes, will build Docker image"
             else
               echo "changed=false" >> $GITHUB_OUTPUT
+              echo "⏭️  ${{ matrix.service }} has NO changes, skipping Docker build"
             fi
           fi
 
@@ -179,19 +188,9 @@ jobs:
             echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           fi
 
-      # OPTIMIZACIÓN 5: Cache de Docker layers
       - name: Set up Docker Buildx
         if: steps.changed.outputs.changed == 'true'
         uses: docker/setup-buildx-action@v2
-
-      - name: Cache Docker layers
-        if: steps.changed.outputs.changed == 'true'
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ matrix.service }}-
 
       - name: Download build artifact
         if: steps.changed.outputs.changed == 'true'
@@ -200,10 +199,19 @@ jobs:
           name: ${{ matrix.service }}-build
           path: ./${{ matrix.service }}/target/
 
-      - name: Verify JAR
+      - name: Verify and organize JAR
         if: steps.changed.outputs.changed == 'true'
         run: |
+          mkdir -p ${{ matrix.service }}/target/
+          if [ -d "artifact-temp" ]; then
+            mv artifact-temp/* ${{ matrix.service }}/target/ 2>/dev/null || true
+            rmdir artifact-temp
+          fi
           ls -lah ${{ matrix.service }}/target/
+          if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
+            echo "JAR not found"
+            exit 1
+          fi
 
       - name: Login to Docker Hub
         if: steps.changed.outputs.changed == 'true'
@@ -221,32 +229,39 @@ jobs:
           tags: |
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
             ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      # OPTIMIZACIÓN 6: Solo escanear en cambios importantes
-      - name: Scan Docker image with Trivy (solo en dev)
-        if: steps.changed.outputs.changed == 'true' && needs.set-env.outputs.IMAGE_TAG == 'dev'
+      
+      - name: Scan Docker image with Trivy (console output)
         uses: aquasecurity/trivy-action@0.11.2
         with:
           image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
           format: table
           exit-code: 0
           vuln-type: 'os,library'
-          severity: 'CRITICAL'  # Solo críticos
+          severity: 'HIGH,CRITICAL'
 
-      # Mover cache
-      - name: Move cache
-        if: steps.changed.outputs.changed == 'true'
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      - name: Scan Docker image with Trivy (HTML report)
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-${{ matrix.service }}.html
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
 
+      - name: Upload Trivy HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.html
+  # ============================================
+  # 3. VALIDATE HELM CHARTS
+  # ============================================
   validate-charts:
     needs: build-docker-images
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 5
       matrix:
         service:
           - user-service
@@ -275,11 +290,19 @@ jobs:
             helm lint "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
           fi
 
-  # OPTIMIZACIÓN 7: Deploy simplificado (sin todos los tests)
+      - name: Render Helm template ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev > "helm-${{ matrix.service }}-rendered.yaml"
+          fi
+
+  # ============================================
+  # 4. DEPLOY & TEST ALL SERVICES
+  # ============================================
   deploy-and-test:
     needs: [validate-charts, set-env]
     runs-on: ubuntu-latest
-    name: Deploy & Smoke Tests
+    name: Deploy & Test All Services
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -301,50 +324,73 @@ jobs:
       - name: Detect which services changed and set tags
         id: detect-changes
         run: |
-          SERVICE_DISCOVERY_TAG="feature-monitoring"
-          CLOUD_CONFIG_TAG="feature-monitoring"
-          API_GATEWAY_TAG="feature-monitoring"
-          PRODUCT_SERVICE_TAG="feature-monitoring"
-          USER_SERVICE_TAG="feature-monitoring"
-          PAYMENT_SERVICE_TAG="feature-monitoring"
-          SHIPPING_SERVICE_TAG="feature-monitoring"
-          FAVOURITE_SERVICE_TAG="feature-hpa"
-          ORDER_SERVICE_TAG="feature-monitoring"
-          PROXY_CLIENT_TAG="feature-monitoring"
+          # Tags estables por defecto
+          API_GATEWAY_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="0.1.0"
+          USER_SERVICE_TAG="0.1.0"
+          PAYMENT_SERVICE_TAG="0.1.0"
+          SHIPPING_SERVICE_TAG="0.1.0"
+          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
+          ORDER_SERVICE_TAG="0.1.0"
+          PROXY_CLIENT_TAG="0.1.0"
+          SERVICE_DISCOVERY_TAG="feature-db"
+          CLOUD_CONFIG_TAG="feature-db"
           
+          # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^service-discovery/"; then
               SERVICE_DISCOVERY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ service-discovery changed, using tag: $SERVICE_DISCOVERY_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^cloud-config/"; then
               CLOUD_CONFIG_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ cloud-config changed, using tag: $CLOUD_CONFIG_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^api-gateway/"; then
               API_GATEWAY_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ api-gateway changed, using tag: $API_GATEWAY_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^product-service/"; then
               PRODUCT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ product-service changed, using tag: $PRODUCT_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^user-service/"; then
               USER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ user-service changed, using tag: $USER_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^payment-service/"; then
               PAYMENT_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ payment-service changed, using tag: $PAYMENT_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^shipping-service/"; then
               SHIPPING_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ shipping-service changed, using tag: $SHIPPING_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^favourite-service/"; then
               FAVOURITE_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ favourite-service changed, using tag: $FAVOURITE_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^order-service/"; then
               ORDER_SERVICE_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ order-service changed, using tag: $ORDER_SERVICE_TAG"
             fi
+            
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^proxy-client/"; then
               PROXY_CLIENT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+              echo "✅ proxy-client changed, using tag: $PROXY_CLIENT_TAG"
             fi
           fi
           
+          # Exportar todas las variables
           echo "service-discovery-tag=$SERVICE_DISCOVERY_TAG" >> $GITHUB_OUTPUT
           echo "cloud-config-tag=$CLOUD_CONFIG_TAG" >> $GITHUB_OUTPUT
           echo "api-gateway-tag=$API_GATEWAY_TAG" >> $GITHUB_OUTPUT
@@ -361,41 +407,6 @@ jobs:
           helm upgrade --install my-ecommerce ./helm/ecommerce \
             -f ${{ needs.set-env.outputs.VALUES_FILE }} \
             --set global.targetEnvironment=dev \
-            \
-            --set service-discovery.resources={} \
-            --set cloud-config.resources={} \
-            --set api-gateway.resources={} \
-            --set product-service.resources={} \
-            --set user-service.resources={} \
-            --set payment-service.resources={} \
-            --set shipping-service.resources={} \
-            --set favourite-service.resources={} \
-            --set order-service.resources={} \
-            --set proxy-client.resources={} \
-            \
-            --set service-discovery.hpa.enabled=false \
-            --set cloud-config.hpa.enabled=false \
-            --set api-gateway.hpa.enabled=false \
-            --set product-service.hpa.enabled=false \
-            --set user-service.hpa.enabled=false \
-            --set payment-service.hpa.enabled=false \
-            --set shipping-service.hpa.enabled=false \
-            --set favourite-service.hpa.enabled=false \
-            --set order-service.hpa.enabled=false \
-            --set proxy-client.hpa.enabled=false \
-            \
-            --set service-discovery.replicaCount=1 \
-            --set cloud-config.replicaCount=1 \
-            --set api-gateway.replicaCount=1 \
-            --set product-service.replicaCount=1 \
-            --set user-service.replicaCount=1 \
-            --set payment-service.replicaCount=1 \
-            --set shipping-service.replicaCount=1 \
-            --set favourite-service.replicaCount=1 \
-            --set order-service.replicaCount=1 \
-            --set proxy-client.replicaCount=1 \
-            \
-            # ==== TAGS DETECTADOS ====
             --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
             --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
             --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
@@ -406,6 +417,12 @@ jobs:
             --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
             --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
             --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }}
+                  
+      - name: Wait for pods to be created
+        run: |
+          echo "Waiting for pods to be created..."
+          sleep 15
+          kubectl get pods -o wide -n dev
 
       # ===== EUREKA & CLOUD CONFIG =====
 
