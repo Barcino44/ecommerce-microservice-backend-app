@@ -323,7 +323,7 @@ jobs:
         id: detect-changes
         run: |
           # Tags estables por defecto
-          API_GATEWAY_TAG="feature-monitoring"
+          API_GATEWAY_TAG="0.1.0"
           PRODUCT_SERVICE_TAG="feature-monitoring"
           USER_SERVICE_TAG="feature-monitoring"
           PAYMENT_SERVICE_TAG="feature-monitoring"
