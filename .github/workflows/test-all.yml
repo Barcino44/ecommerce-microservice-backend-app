@@ -245,6 +245,23 @@ jobs:
             --set favourite-service.image.tag=${{ env.FAVOURITE_SERVICE_TAG }} \
             --set order-service.image.tag=${{ env.ORDER_SERVICE_TAG }} \
             --set proxy-client.image.tag=${{ env.PROXY_CLIENT_TAG }}
+            
+      - name: Debug Cluster Failure
+        run: |
+          echo "================ PODS STATUS ================"
+          kubectl get pods -n dev -o wide
+          
+          echo "================ KUBERNETES EVENTS (Last 50) ================"
+          kubectl get events -n dev --sort-by='.lastTimestamp' | tail -n 50
+          
+          echo "================ DESCRIBE DISCOVERY (Check Resources/Events) ================"
+          kubectl describe pod -l app.kubernetes.io/name=service-discovery -n dev
+          
+          echo "================ LOGS: SERVICE DISCOVERY ================"
+          kubectl logs -n dev -l app.kubernetes.io/name=service-discovery --tail=100 --all-containers || echo "No logs for discovery"
+
+          echo "================ LOGS: CONFIG SERVER ================"
+          kubectl logs -n dev -l app.kubernetes.io/name=cloud-config --tail=100 --all-containers || echo "No logs for config"
 
       - name: Wait for Infrastructure
         run: |
