@@ -18,49 +18,49 @@ global:
 service-discovery:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 cloud-config:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 api-gateway:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 product-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 user-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 payment-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 shipping-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 favourite-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 order-service:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
 
 proxy-client:
   autoscaling:
     enabled: false
-  resources: {}
+  resources: null
