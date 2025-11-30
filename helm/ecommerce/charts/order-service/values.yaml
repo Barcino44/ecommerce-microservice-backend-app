@@ -32,6 +32,7 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+    
 stable:
   image:
     repository: "barcino/order-service"
