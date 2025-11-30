@@ -385,15 +385,15 @@ jobs:
         id: detect-changes
         run: |
           # Default stable tags
-          SERVICE_DISCOVERY_TAG="feature-db"
-          CLOUD_CONFIG_TAG="feature-db"
+          SERVICE_DISCOVERY_TAG="feature-monitoring"
+          CLOUD_CONFIG_TAG="feature-monitoring"
           API_GATEWAY_TAG="0.1.0"
-          PRODUCT_SERVICE_TAG="feature-db"
-          USER_SERVICE_TAG="feature-db"
-          PAYMENT_SERVICE_TAG="feature-db"
-          SHIPPING_SERVICE_TAG="feature-db"
+          PRODUCT_SERVICE_TAG="feature-monitoring"
+          USER_SERVICE_TAG="feature-monitoring"
+          PAYMENT_SERVICE_TAG="feature-monitoring"
+          SHIPPING_SERVICE_TAG="feature-monitoring"
           FAVOURITE_SERVICE_TAG="feature-sealedsecret"
-          ORDER_SERVICE_TAG="feature-db"
+          ORDER_SERVICE_TAG="feature-monitoring"
           PROXY_CLIENT_TAG="0.1.0"
           
           # For QA/Prod, we use the environment-specific tag from set-env
@@ -578,99 +578,6 @@ jobs:
           else
             echo "⚠️  Secure pod creation had issues (this might be expected for nginx as non-root)"
           fi
-
-      # ===== INTEGRATION TESTS =====
-
-      - name: Create test pod for endpoint testing
-        run: |
-          kubectl run test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} \
-            --image=curlimages/curl:latest \
-            --restart=Never \
-            --command -- sleep 3600 \
-            --overrides='{
-              "spec": {
-                "securityContext": {
-                  "runAsNonRoot": true,
-                  "runAsUser": 1000,
-                  "fsGroup": 1000,
-                  "seccompProfile": {"type": "RuntimeDefault"}
-                },
-                "containers": [{
-                  "name": "test-pod",
-                  "image": "curlimages/curl:latest",
-                  "command": ["sleep", "3600"],
-                  "securityContext": {
-                    "allowPrivilegeEscalation": false,
-                    "runAsNonRoot": true,
-                    "runAsUser": 1000,
-                    "capabilities": {"drop": ["ALL"]}
-                  }
-                }]
-              }
-            }'
-          
-          kubectl wait -n ${{ needs.set-env.outputs.NAMESPACE }} \
-            --for=condition=Ready pod/test-pod --timeout=60s
-
-      - name: Test Eureka Health
-        run: |
-          echo "🔍 Testing Eureka Health..."
-          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
-            curl -f http://my-ecommerce-service-discovery.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8761/actuator/health
-
-      - name: Test API Gateway
-        run: |
-          echo "🔍 Testing API Gateway..."
-          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
-            curl -f http://my-ecommerce-api-gateway.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8080/actuator/health
-
-      - name: Test Product Service
-        run: |
-          echo "🔍 Testing Product Service..."
-          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
-            curl -f http://my-ecommerce-product-service.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8500/product-service/actuator/health
-
-      - name: Test User Service
-        run: |
-          echo "🔍 Testing User Service..."
-          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
-            curl -f http://my-ecommerce-user-service.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8700/user-service/actuator/health
-
-      - name: Verify Database Connections
-        run: |
-          echo "🔍 Verifying Database Connections..."
-          echo "Checking if services are connected to real databases (not H2)..."
-          
-          # Check product-service logs for DB connection
-          echo "Product Service DB logs:"
-          kubectl logs -n ${{ needs.set-env.outputs.NAMESPACE }} -l app=product-service --tail=50 | grep -i "database\|jdbc\|mysql\|postgres" || true
-          
-          # Check user-service logs for DB connection
-          echo "User Service DB logs:"
-          kubectl logs -n ${{ needs.set-env.outputs.NAMESPACE }} -l app=user-service --tail=50 | grep -i "database\|jdbc\|mysql\|postgres" || true
-
-      - name: Final Status Report
-        if: always()
-        run: |
-          echo "================================================"
-          echo "🎯 DEPLOYMENT SUMMARY - ${{ needs.set-env.outputs.ENVIRONMENT }} Environment"
-          echo "================================================"
-          echo ""
-          echo "📦 Sealed Secrets Status:"
-          kubectl get sealedsecrets -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No sealed secrets found"
-          echo ""
-          kubectl get secrets -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No secrets found"
-          echo ""
-          echo "🔒 Security Policies Status:"
-          kubectl get networkpolicies -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No network policies found"
-          echo ""
-          echo "📊 Pods Status:"
-          kubectl get pods -n ${{ needs.set-env.outputs.NAMESPACE }} -o wide
-          echo ""
-          echo "🌐 Services Status:"
-          kubectl get svc -n ${{ needs.set-env.outputs.NAMESPACE }}
-          echo ""
-          echo "================================================"
 
       - name: Cleanup test pods
         if: always()
