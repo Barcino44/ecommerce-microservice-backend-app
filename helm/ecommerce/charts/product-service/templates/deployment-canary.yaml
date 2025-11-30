@@ -71,6 +71,10 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.canary.image.repository }}:{{ .Values.canary.image.tag }}"
           imagePullPolicy: {{ .Values.canary.image.imagePullPolicy | default "IfNotPresent" }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
@@ -89,7 +93,7 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
           env:
-            {{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+            {{- if or (eq .Values.global.namespace "qa") (eq .Values.global.namespace "prod") }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:

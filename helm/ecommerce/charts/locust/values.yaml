@@ -1,0 +1,67 @@
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+
+image:
+  repository: locustio/locust
+  tag: master
+
+host: "https://gateway.local" # Puede ser tu IP de Minikube o un DNS
+webHost: "0.0.0.0"
+webPort: 8089
+
+service:
+  type: NodePort
+  port: 8089
+  nodePort: 30089
+
+hostAliases:
+  enabled: true
+  ip: "192.168.49.2" # tu IP de Minikube
+  hostnames:
+    - "gateway.local"
+
+locustfile: |
+  from locust import HttpUser, task, between
+
+  class APIUser(HttpUser):
+      wait_time = between(1, 5)
+
+      @task
+      def products(self):
+          self.client.get("/app/api/products", verify=False)
+
+      @task
+      def shippings(self):
+          self.client.get("/shipping-service/api/shippings", verify=False)
+
+      @task
+      def users(self):
+          self.client.get("/user-service/api/users", verify=False)
+
+      @task
+      def favourites(self):
+          self.client.get("/favourite-service/api/favourites", verify=False)
+
+      @task
+      def payments(self):
+          self.client.get("/payment-service/api/payments", verify=False)
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault

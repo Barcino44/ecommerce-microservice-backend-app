@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jaeger
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
   namespace: {{ .Values.global.namespace }}
 spec:
   replicas: {{ .Values.global.replicaCount }}

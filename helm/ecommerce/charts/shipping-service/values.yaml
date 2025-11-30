@@ -42,6 +42,28 @@ stable:
 canary:
   image:
     repository: "barcino/shipping-service"
+    tag: "feature-db"
+  replicaCount: 0
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1700Mi"
+  limits:
+    cpu: "750m"
+    memory: "1900Mi"
+
+hpa:
+  stable:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2
+    cpuAverage: 60
+    memoryAverage: 80
+
+  canary:
+    enabled: false 
+  
     tag: "feature-monitoring"
   replicaCount: 0  
 

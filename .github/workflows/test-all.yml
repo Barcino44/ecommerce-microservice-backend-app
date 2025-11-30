@@ -2,8 +2,11 @@ name: Ecommerce CI/CD (Minikube Local)
 
 on:
   push:
+    branches-ignore:
+      - prod
+      - qa
   pull_request:
-    branches: [ master, dev ]
+    branches: [master]
 
 env:
   HELM_VERSION: 3.12.0
@@ -36,24 +39,8 @@ jobs:
 
           IMAGE_TAG="dev"
           VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-
-          if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
-            IMAGE_TAG="dev"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-          elif [[ "$SAFE_BRANCH_NAME" == "qa" ]]; then
-            IMAGE_TAG="qa"
-            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
-          elif [[ "$SAFE_BRANCH_NAME" == "prod" ]]; then
-            IMAGE_TAG="prod"
-            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
-          else
-            IMAGE_TAG="$SAFE_BRANCH_NAME"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-          fi
-
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
-
   # ============================================
   # 1. BUILD MAVEN (CI) - CONDITIONAL
   # ============================================
@@ -339,16 +326,16 @@ jobs:
         id: detect-changes
         run: |
           # Tags estables por defecto
-          API_GATEWAY_TAG="0.1.0"
-          PRODUCT_SERVICE_TAG="0.1.0"
-          USER_SERVICE_TAG="0.1.0"
-          PAYMENT_SERVICE_TAG="0.1.0"
-          SHIPPING_SERVICE_TAG="0.1.0"
-          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
-          ORDER_SERVICE_TAG="0.1.0"
+          API_GATEWAY_TAG="feature-monitoring"
+          PRODUCT_SERVICE_TAG="feature-monitoring"
+          USER_SERVICE_TAG="feature-monitoring"
+          PAYMENT_SERVICE_TAG="feature-monitoring"
+          SHIPPING_SERVICE_TAG="feature-monitoring"
+          FAVOURITE_SERVICE_TAG="feature-hpa"
+          ORDER_SERVICE_TAG="feature-monitoring"
           PROXY_CLIENT_TAG="0.1.0"
-          SERVICE_DISCOVERY_TAG="feature-db"
-          CLOUD_CONFIG_TAG="feature-db"
+          SERVICE_DISCOVERY_TAG="feature-monitoring"
+          CLOUD_CONFIG_TAG="feature-monitoring"
           
           # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
@@ -501,33 +488,7 @@ jobs:
           
           echo "=== Test Eureka Registry ==="
           kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-
-      # === Test endpoints ===
-      - name: Test API Gateway
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
-
-      - name: Test Shipping Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-
-      - name: Test User Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-
-      - name: Test Product Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
-
-      - name: Test Favourite Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
-
-      - name: Test Payment Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
-
-      - name: Cleanup test pod
-        if: always()
+     
+      - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found
