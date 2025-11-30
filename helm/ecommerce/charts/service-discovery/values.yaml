@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/service-discovery"
-    tag: "feature-deploystrategies"
+    tag: "feature-db"
 
 green:
   image:
     repository: "barcino/service-discovery"
-    tag: "feature-deploystrategies"
+    tag: "feature-db"
 serviceAccount:
   create: true
   automount: false

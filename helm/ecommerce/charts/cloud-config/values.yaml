@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-deploystrategies"
+    tag: "feature-db"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-deploystrategies"
+    tag: "feature-db"
 serviceAccount:
   create: true
   automount: false
