@@ -5,44 +5,62 @@ global:
   metadata:
     name: dev
     labels:
-      environment: dev
+      environment: ci
       managed-by: helm
       pod-security.kubernetes.io/enforce: "baseline"
       pod-security.kubernetes.io/enforce-version: "latest"
       pod-security.kubernetes.io/audit: "baseline"
       pod-security.kubernetes.io/warn: "baseline"
     annotations:
-      description: "Development environment for ecommerce microservices"
+      description: "CI environment for ecommerce microservices testing"
 
+# Deshabilitar HPA globalmente para todos los servicios
 service-discovery:
+  autoscaling:
+    enabled: false
   resources: null
 
 cloud-config:
+  autoscaling:
+    enabled: false
   resources: null
 
 api-gateway:
+  autoscaling:
+    enabled: false
   resources: null
 
 product-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 user-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 payment-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 shipping-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 favourite-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 order-service:
+  autoscaling:
+    enabled: false
   resources: null
 
 proxy-client:
-  resources: null 
-
-
-
+  autoscaling:
+    enabled: false
+  resources: null
