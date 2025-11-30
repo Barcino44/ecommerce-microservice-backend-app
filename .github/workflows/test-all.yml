@@ -6,7 +6,7 @@ on:
       - prod
       - qa
   pull_request:
-    branches: [master]
+    branches: [ master, dev ]
 
 env:
   HELM_VERSION: 3.12.0
@@ -39,6 +39,21 @@ jobs:
 
           IMAGE_TAG="dev"
           VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+
+          if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
+            IMAGE_TAG="dev"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          elif [[ "$SAFE_BRANCH_NAME" == "qa" ]]; then
+            IMAGE_TAG="qa"
+            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
+          elif [[ "$SAFE_BRANCH_NAME" == "prod" ]]; then
+            IMAGE_TAG="prod"
+            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
+          else
+            IMAGE_TAG="$SAFE_BRANCH_NAME"
+            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          fi
+
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
   # ============================================
@@ -326,7 +341,7 @@ jobs:
         id: detect-changes
         run: |
           # Tags estables por defecto
-          API_GATEWAY_TAG="feature-monitoring"
+          API_GATEWAY_TAG="0.1.0"
           PRODUCT_SERVICE_TAG="feature-monitoring"
           USER_SERVICE_TAG="feature-monitoring"
           PAYMENT_SERVICE_TAG="feature-monitoring"
@@ -488,7 +503,7 @@ jobs:
           
           echo "=== Test Eureka Registry ==="
           kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-     
+          
       - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found
