@@ -2,6 +2,9 @@ name: Ecommerce CI/CD (Minikube Local)
 
 on:
   push:
+    branches-ignore:
+      - prod
+      - qa
   pull_request:
     branches: [ master, dev ]
 
@@ -53,7 +56,6 @@ jobs:
 
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
-
   # ============================================
   # 1. BUILD MAVEN (CI) - CONDITIONAL
   # ============================================
@@ -340,12 +342,12 @@ jobs:
         run: |
           # Tags estables por defecto
           API_GATEWAY_TAG="0.1.0"
-          PRODUCT_SERVICE_TAG="0.1.0"
-          USER_SERVICE_TAG="0.1.0"
-          PAYMENT_SERVICE_TAG="0.1.0"
-          SHIPPING_SERVICE_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="feature-db"
+          USER_SERVICE_TAG="feature-db"
+          PAYMENT_SERVICE_TAG="feature-db"
+          SHIPPING_SERVICE_TAG="feature-db"
           FAVOURITE_SERVICE_TAG="feature-sealedsecret"
-          ORDER_SERVICE_TAG="0.1.0"
+          ORDER_SERVICE_TAG="feature-db"
           PROXY_CLIENT_TAG="0.1.0"
           SERVICE_DISCOVERY_TAG="feature-db"
           CLOUD_CONFIG_TAG="feature-db"
