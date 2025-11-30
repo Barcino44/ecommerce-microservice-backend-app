@@ -31,14 +31,14 @@ jobs:
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
           
           IMAGE_TAG="dev"
-          VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+          VALUES_FILE="./helm/ecommerce/values-ci.yaml"
 
           if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
             IMAGE_TAG="dev"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+            VALUES_FILE="./helm/ecommerce/values-ci.yaml"
           else
             IMAGE_TAG="$SAFE_BRANCH_NAME"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
+            VALUES_FILE="./helm/ecommerce/values-ci.yaml"
           fi
 
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
