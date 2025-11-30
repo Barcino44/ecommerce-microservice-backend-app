@@ -19,6 +19,12 @@ spec:
         app: {{ .Chart.Name }}
         version: canary
         release: {{ .Release.Name }}
+      annotations:
+          {{- if .Values.prometheus.enabled }}
+          prometheus.io/scrape: "{{ .Values.prometheus.scrape }}"
+          prometheus.io/port: "{{ .Values.prometheus.port }}"
+          prometheus.io/path: "/{{ .Chart.Name }}{{ .Values.prometheus.path }}"
+          {{- end }}   
     spec:
       serviceAccountName: {{ .Release.Name }}-{{ .Chart.Name }}
       {{- if .Values.podSecurityContext.enabled }}

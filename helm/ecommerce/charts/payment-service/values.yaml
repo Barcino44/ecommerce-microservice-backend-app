@@ -32,13 +32,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/payment-service"
-    tag: "feature-db"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/payment-service"
-    tag: "feature-db"
+    tag: "feature-monitoring"
   replicaCount: 0
 
 resources:
@@ -59,3 +59,10 @@ hpa:
 
   canary:
     enabled: false 
+
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8400
+  path: "/actuator/prometheus"

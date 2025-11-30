@@ -1,13 +1,63 @@
 
 server:
+  address: 0.0.0.0
   port: 8500
 
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
-
+        include: "health,prometheus,metrics"
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+          enabled: true
+          step: 1m 
+          descriptions: true 
+    tags:
+      application: ${spring.application.name}
+    enable:
+      jvm: true
+      process: true
+      system: true
+      tomcat: true
+      logback: true
+      http: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      sla:
+        http.server.requests: 10ms, 50ms, 100ms, 200ms, 500ms, 1s, 2s
+  health:
+    # Health checks individuales
+    db:
+      enabled: true  # Si usas base de datos
+    diskspace:
+      enabled: true
+      threshold: 10MB
+    ping:
+      enabled: true
+    
+    # Liveness probe - indica si la app está viva
+    livenessstate:
+      enabled: true
+    
+    # Readiness probe - indica si la app está lista para recibir tráfico
+    readinessstate:
+      enabled: true
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ecommerce_stage_db}

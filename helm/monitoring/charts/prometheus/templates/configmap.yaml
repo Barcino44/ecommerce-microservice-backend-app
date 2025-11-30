@@ -1,0 +1,221 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.config.globalScrapeInterval }}
+      evaluation_interval: {{ .Values.config.globalEvaluationInterval }}
+      scrape_timeout: {{ .Values.config.scrapeTimeout }}
+      external_labels:
+        cluster: "ecommerce-k8s"
+        environment: "{{ .Values.global.springProfilesActive }}"
+
+    scrape_configs:
+      # ============================================
+      # SCRAPE PROMETHEUS
+      # ============================================
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      # ============================================
+      # SPRING BOOT MICROSERVICES (role: pod)
+      # Lee prom.io/scrape, prom.io/port y prom.io/path
+      # ============================================
+      - job_name: "spring-boot-actuator"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                {{- if .Values.config.targetNamespaces }}
+                {{- range .Values.config.targetNamespaces }}
+                - {{ . }}
+                {{- end }}
+                {{- else }}
+                - dev
+                - qa
+                - prod
+                {{- end }}
+
+        relabel_configs:
+          # Solo scrape pods con prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+
+          # Filtrar las apps que quieras monitorear
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: (api-gateway|user-service|product-service|order-service|payment-service|shipping-service|favourite-service|proxy-client)
+
+          # Construir __address__ = podIP:port
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            separator: ":"
+            regex: (.+);(.+)
+            replacement: "$1:$2"
+            target_label: __address__
+
+          - source_labels: [__address__]
+            regex: '.*:.*'  # Solo mantener si tiene formato IP:PORT
+            action: keep
+            
+          # Ruta a métricas
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # Labels útiles
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: service
+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+          # Después del relabel que construye __address__, agrega:
+        
+
+      # ============================================
+      # cADVISOR (contenedores)
+      # ============================================
+      - job_name: "kubernetes-cadvisor"
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        kubernetes_sd_configs:
+          - role: node
+
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+
+      # ============================================
+      # KUBELET METRICS
+      # ============================================
+      - job_name: "kubernetes-kubelet"
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        kubernetes_sd_configs:
+          - role: node
+
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics
+
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+
+      # ============================================
+      # JAEGER
+      # ============================================
+      - job_name: "jaeger"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                {{- if .Values.config.targetNamespaces }}
+                {{- range .Values.config.targetNamespaces }}
+                - {{ . }}
+                {{- end }}
+                {{- else }}
+                - dev
+                - qa
+                - prod
+                {{- end }}
+
+        relabel_configs:
+          # solo pods con label app=jaeger
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: jaeger
+
+          # scrape endpoint
+          - source_labels: [__meta_kubernetes_pod_ip]
+            replacement: "$1:14269"
+            target_label: __address__
+
+          # tag service
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: service
+
+          # namespace
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+          # path de métricas
+          - target_label: __metrics_path__
+            replacement: /metrics
+
+
+
+      # ============================================
+      # EUREKA
+      # ============================================
+      - job_name: "eureka"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                {{- if .Values.config.targetNamespaces }}
+                {{- range .Values.config.targetNamespaces }}
+                - {{ . }}
+                {{- end }}
+                {{- else }}
+                - dev
+                - qa
+                - prod
+                {{- end }}
+
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: service-discovery
+
+          - source_labels: [__meta_kubernetes_pod_ip]
+            replacement: "$1:8761"
+            target_label: __address__
+
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: service
+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+          - target_label: __metrics_path__
+            replacement: /actuator/prometheus
+

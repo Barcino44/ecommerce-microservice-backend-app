@@ -33,12 +33,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/proxy-client"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/proxy-client"
+<<<<<<< HEAD
     tag: "0.1.0"
   replicaCount: 0 
 
@@ -60,3 +61,13 @@ hpa:
 
   canary:
     enabled: false 
+=======
+    tag: "feature-monitoring"
+  replicaCount: 0 
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8900
+  path: "/app/actuator/prometheus"
+>>>>>>> 45e408f8b12cf296a6fa6dcd52d01a8b83c1882e

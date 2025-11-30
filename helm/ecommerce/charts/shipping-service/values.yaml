@@ -36,7 +36,7 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-db"
+    tag: "feature-monitoring"
   replicaCount: 1
   
 canary:
@@ -64,3 +64,11 @@ hpa:
   canary:
     enabled: false 
   
+    tag: "feature-monitoring"
+  replicaCount: 0  
+
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8600
+  path: "/actuator/prometheus"

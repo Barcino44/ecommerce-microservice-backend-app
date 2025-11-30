@@ -55,7 +55,7 @@ stable:
 canary:
   image:
     repository: "barcino/api-gateway"
-    tag: "0.1.0"
+    tag: "feature-monitoring"
   replicaCount: 0
 
 resources:
@@ -75,4 +75,9 @@ hpa:
     memoryAverage: 80
 
   canary:
-    enabled: false 
+    enabled: false
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 8080
+  path: "/actuator/prometheus"

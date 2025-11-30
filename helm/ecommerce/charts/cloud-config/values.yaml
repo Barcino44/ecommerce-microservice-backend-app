@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-db"
+    tag: "feature-monitoring"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-db"
+    tag: "feature-monitoring"
 serviceAccount:
   create: true
   automount: false
@@ -58,3 +58,8 @@ hpa:
   maxReplicas: 1
   cpuAverage: 60   
   memoryAverage: 80  
+prometheus:
+  enabled: true
+  scrape: "true"
+  port: 9296
+  path: "/actuator/prometheus"
