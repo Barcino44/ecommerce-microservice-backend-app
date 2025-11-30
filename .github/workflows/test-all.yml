@@ -189,6 +189,56 @@ jobs:
             fi
           fi
 
+      - name: Set scan tag (stable or new)
+        id: scan-tag
+        run: |
+          # Tags estables por defecto para escaneo
+          case "${{ matrix.service }}" in
+            api-gateway)
+              SCAN_TAG="0.1.0"
+              ;;
+            product-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            user-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            payment-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            shipping-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            favourite-service)
+              SCAN_TAG="feature-hpa"
+              ;;
+            order-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            proxy-client)
+              SCAN_TAG="0.1.0"
+              ;;
+            service-discovery)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            cloud-config)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            *)
+              SCAN_TAG="latest"
+              ;;
+          esac
+          
+          # Si el servicio cambió, usar el nuevo tag
+          if [ "${{ steps.changed.outputs.changed }}" == "true" ]; then
+            SCAN_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "🔄 Service changed, scanning new tag: $SCAN_TAG"
+          else
+            echo "📦 Service unchanged, scanning stable tag: $SCAN_TAG"
+          fi
+          
+          echo "SCAN_TAG=$SCAN_TAG" >> $GITHUB_OUTPUT
+
       - name: Extract version
         if: steps.changed.outputs.changed == 'true'
         id: version
@@ -246,7 +296,7 @@ jobs:
       - name: Scan Docker image with Trivy (console output)
         uses: aquasecurity/trivy-action@0.11.2
         with:
-          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
           format: table
           exit-code: 0
           vuln-type: 'os,library'
@@ -255,7 +305,7 @@ jobs:
       - name: Scan Docker image with Trivy (HTML report)
         uses: aquasecurity/trivy-action@0.11.2
         with:
-          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
           format: template
           template: '@/contrib/html.tpl'
           output: trivy-${{ matrix.service }}.html
@@ -493,6 +543,7 @@ jobs:
           
           echo "=== All Services in dev namespace ==="
           kubectl get svc -n dev
+     
       - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found
