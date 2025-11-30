@@ -2,11 +2,8 @@ name: Ecommerce CI/CD (Minikube Local)
 
 on:
   push:
-    branches-ignore:
-      - prod
-      - qa
   pull_request:
-    branches: [ master, dev ]
+    branches: [ master]
 
 env:
   HELM_VERSION: 3.12.0
