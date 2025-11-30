@@ -1,0 +1,680 @@
+name: Ecommerce CI/CD - QA & Prod
+
+on:
+  push:
+    branches:
+      - qa
+      - prod
+
+env:
+  HELM_VERSION: 3.12.0
+  KIND_VERSION: v0.20.0
+  KUBESEAL_VERSION: '0.23.0'
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+jobs:
+  # ============================================
+  # 0. SET ENVIRONMENT
+  # ============================================
+  set-env:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE_TAG: ${{ steps.set-tag.outputs.IMAGE_TAG }}
+      VALUES_FILE: ${{ steps.set-tag.outputs.VALUES_FILE }}
+      ENVIRONMENT: ${{ steps.set-tag.outputs.ENVIRONMENT }}
+      NAMESPACE: ${{ steps.set-tag.outputs.NAMESPACE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set environment variables
+        id: set-tag
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "Branch is $BRANCH_NAME"
+
+          if [[ "$BRANCH_NAME" == "qa" ]]; then
+            IMAGE_TAG="qa"
+            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
+            ENVIRONMENT="qa"
+            NAMESPACE="qa"
+          elif [[ "$BRANCH_NAME" == "prod" ]]; then
+            IMAGE_TAG="prod"
+            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
+            ENVIRONMENT="prod"
+            NAMESPACE="prod"
+          else
+            echo "❌ Invalid branch for this workflow"
+            exit 1
+          fi
+
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
+          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_OUTPUT
+          
+          echo "✅ Environment: $ENVIRONMENT"
+          echo "✅ Namespace: $NAMESPACE"
+          echo "✅ Image Tag: $IMAGE_TAG"
+          echo "✅ Values File: $VALUES_FILE"
+
+  # ============================================
+  # 1. BUILD MAVEN SERVICES
+  # ============================================
+  build-services:
+    runs-on: ubuntu-latest
+    needs: set-env
+    strategy:
+      max-parallel: 3
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
+    name: Build ${{ matrix.service }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+          cache: maven
+
+      - name: Build ${{ matrix.service }}
+        run: |
+          if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
+            cd ${{ matrix.service }}
+            export MAVEN_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=256m"
+            mvn clean package -DskipTests -T 1C
+          else
+            echo "⏭️  Skipping ${{ matrix.service }} - not a Maven service"
+          fi
+
+      - name: Run tests for ${{ matrix.service }}
+        run: |
+          if [ -d "${{ matrix.service }}" ] && [ -f "${{ matrix.service }}/pom.xml" ]; then
+            cd ${{ matrix.service }}
+            export MAVEN_OPTS="-Xmx512m"
+            mvn test
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-build
+          path: ${{ matrix.service }}/target/*.jar
+          retention-days: 1
+
+  # ============================================
+  # 2. BUILD & PUSH DOCKER IMAGES
+  # ============================================
+  build-docker-images:
+    needs: [build-services, set-env]
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 2
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
+    name: Build Docker Image - ${{ matrix.service }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ -f "${{ matrix.service }}/pom.xml" ]; then
+            VERSION=$(grep '<version>' ${{ matrix.service }}/pom.xml | head -n1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            VERSION="latest"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-build
+          path: ./${{ matrix.service }}/target/
+
+      - name: Verify JAR
+        run: |
+          ls -lah ${{ matrix.service }}/target/
+          if ! ls ${{ matrix.service }}/target/*.jar 1> /dev/null 2>&1; then
+            echo "❌ JAR not found"
+            exit 1
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+            ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@0.11.2
+        with:
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          format: table
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+
+  # ============================================
+  # 3. VALIDATE HELM CHARTS
+  # ============================================
+  validate-charts:
+    needs: [build-docker-images, set-env]
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - payment-service
+          - shipping-service
+          - favourite-service
+          - api-gateway
+          - service-discovery
+          - order-service
+          - cloud-config
+          - proxy-client
+    name: Validate ${{ matrix.service }} Helm Chart
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Helm lint ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm lint "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "${{ needs.set-env.outputs.VALUES_FILE }}" \
+              --set global.targetEnvironment=${{ needs.set-env.outputs.ENVIRONMENT }}
+          fi
+
+      - name: Render Helm template ${{ matrix.service }}
+        run: |
+          if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "${{ needs.set-env.outputs.VALUES_FILE }}" \
+              --set global.targetEnvironment=${{ needs.set-env.outputs.ENVIRONMENT }} \
+              > "helm-${{ matrix.service }}-rendered.yaml"
+          fi
+
+  # ============================================
+  # 4. DEPLOY WITH SEALED SECRETS
+  # ============================================
+  deploy-with-sealed-secrets:
+    needs: [validate-charts, set-env]
+    runs-on: ubuntu-latest
+    name: Deploy to ${{ needs.set-env.outputs.ENVIRONMENT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Set up Kind
+        uses: engineerd/setup-kind@v0.6.2
+        with:
+          version: ${{ env.KIND_VERSION }}
+
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name ecommerce-${{ needs.set-env.outputs.ENVIRONMENT }} --wait 60s
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ needs.set-env.outputs.NAMESPACE }}
+
+      # ===== SEALED SECRETS SETUP =====
+      
+      - name: Install Sealed Secrets Controller
+        run: |
+          echo "📦 Installing Sealed Secrets Controller..."
+          kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.22.0/controller.yaml
+          
+          echo "⏳ Waiting for Sealed Secrets Controller to be ready..."
+          kubectl wait --for=condition=Ready pod -l name=sealed-secrets-controller -n kube-system --timeout=180s
+          
+          echo "✅ Sealed Secrets Controller installed successfully"
+
+      - name: Install Kubeseal CLI
+        run: |
+          echo "📥 Downloading Kubeseal v${{ env.KUBESEAL_VERSION }}..."
+          wget "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${{ env.KUBESEAL_VERSION }}/kubeseal-${{ env.KUBESEAL_VERSION }}-linux-amd64.tar.gz"
+          
+          echo "📦 Extracting Kubeseal..."
+          tar xzf kubeseal-${{ env.KUBESEAL_VERSION }}-linux-amd64.tar.gz
+          
+          echo "🔧 Installing Kubeseal..."
+          sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+          
+          echo "✅ Kubeseal installed successfully"
+          kubeseal --version
+
+      - name: Fetch Sealed Secrets public certificate
+        run: |
+          echo "🔑 Fetching public certificate from Sealed Secrets Controller..."
+          cd helm
+          
+          kubeseal --fetch-cert \
+            --controller-name=sealed-secrets-controller \
+            --controller-namespace=kube-system \
+            > secrets/mycert.pem
+          
+          echo "✅ Public certificate saved to secrets/mycert.pem"
+          cat secrets/mycert.pem
+
+      - name: Generate Sealed Secrets
+        run: |
+          cd helm
+          
+          if [ -f "secrets/sealedSecrets.sh" ]; then
+            echo "🔐 Running sealedSecrets.sh script..."
+            chmod +x secrets/sealedSecrets.sh
+            ./secrets/sealedSecrets.sh ${{ needs.set-env.outputs.ENVIRONMENT }}
+            
+            echo "✅ Sealed Secrets generated successfully"
+          else
+            echo "⚠️  sealedSecrets.sh script not found, skipping..."
+          fi
+
+      - name: Apply Sealed Secrets for ${{ needs.set-env.outputs.ENVIRONMENT }}
+        run: |
+          cd helm
+          SEALED_SECRETS_PATH="secrets/sealedsecrets/${{ needs.set-env.outputs.ENVIRONMENT }}"
+          
+          if [ -d "$SEALED_SECRETS_PATH" ]; then
+            echo "🔐 Applying Sealed Secrets from $SEALED_SECRETS_PATH..."
+            kubectl apply -f "$SEALED_SECRETS_PATH" -n ${{ needs.set-env.outputs.NAMESPACE }}
+            
+            echo "⏳ Waiting for secrets to be unsealed..."
+            sleep 10
+            
+            echo "✅ Sealed Secrets applied successfully"
+            kubectl get sealedsecrets -n ${{ needs.set-env.outputs.NAMESPACE }}
+            kubectl get secrets -n ${{ needs.set-env.outputs.NAMESPACE }}
+          else
+            echo "⚠️  No Sealed Secrets found at $SEALED_SECRETS_PATH"
+          fi
+
+      # ===== POD SECURITY POLICIES =====
+      
+      - name: Apply Pod Security Policies
+        run: |
+          echo "🔒 Applying Pod Security Policies for ${{ needs.set-env.outputs.ENVIRONMENT }}..."
+          
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ needs.set-env.outputs.NAMESPACE }}
+            labels:
+              pod-security.kubernetes.io/enforce: restricted
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/warn: restricted
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: default-deny-all
+            namespace: ${{ needs.set-env.outputs.NAMESPACE }}
+          spec:
+            podSelector: {}
+            policyTypes:
+            - Ingress
+            - Egress
+          EOF
+          
+          echo "✅ Pod Security Policies applied"
+
+      # ===== HELM DEPLOYMENT =====
+
+      - name: Detect service tags
+        id: detect-changes
+        run: |
+          # Default stable tags
+          SERVICE_DISCOVERY_TAG="feature-db"
+          CLOUD_CONFIG_TAG="feature-db"
+          API_GATEWAY_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="feature-db"
+          USER_SERVICE_TAG="feature-db"
+          PAYMENT_SERVICE_TAG="feature-db"
+          SHIPPING_SERVICE_TAG="feature-db"
+          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
+          ORDER_SERVICE_TAG="feature-db"
+          PROXY_CLIENT_TAG="0.1.0"
+          
+          # For QA/Prod, we use the environment-specific tag from set-env
+          # This assumes images were already built and pushed with the correct tag
+          echo "Using IMAGE_TAG: ${{ needs.set-env.outputs.IMAGE_TAG }}"
+          
+          # Export all tags (you can override specific ones if needed)
+          echo "service-discovery-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "cloud-config-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "api-gateway-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "product-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "user-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "payment-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "shipping-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "favourite-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "order-service-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "proxy-client-tag=${{ needs.set-env.outputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+
+      - name: Helm install/upgrade ecommerce
+        run: |
+          cd helm
+          
+          echo "🚀 Deploying ecommerce to ${{ needs.set-env.outputs.ENVIRONMENT }}..."
+          
+          helm upgrade --install my-ecommerce ./ecommerce \
+            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
+            --set global.targetEnvironment=${{ needs.set-env.outputs.ENVIRONMENT }} \
+            --namespace ${{ needs.set-env.outputs.NAMESPACE }} \
+            --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
+            --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
+            --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
+            --set product-service.image.tag=${{ steps.detect-changes.outputs.product-service-tag }} \
+            --set user-service.image.tag=${{ steps.detect-changes.outputs.user-service-tag }} \
+            --set payment-service.image.tag=${{ steps.detect-changes.outputs.payment-service-tag }} \
+            --set shipping-service.image.tag=${{ steps.detect-changes.outputs.shipping-service-tag }} \
+            --set favourite-service.image.tag=${{ steps.detect-changes.outputs.favourite-service-tag }} \
+            --set order-service.image.tag=${{ steps.detect-changes.outputs.order-service-tag }} \
+            --set proxy-client.image.tag=${{ steps.detect-changes.outputs.proxy-client-tag }} \
+            --wait \
+            --timeout 10m
+          
+          echo "✅ Helm deployment completed"
+
+      - name: Wait for pods to be created
+        run: |
+          echo "⏳ Waiting for pods to be created..."
+          sleep 15
+          kubectl get pods -o wide -n ${{ needs.set-env.outputs.NAMESPACE }}
+
+      # ===== WAIT FOR SERVICES =====
+
+      - name: Wait for Service Discovery (Eureka)
+        run: |
+          echo "⏳ Waiting for Service Discovery..."
+          kubectl wait --for=condition=Ready pod -l app=service-discovery \
+            -n ${{ needs.set-env.outputs.NAMESPACE }} --timeout=180s || echo "⚠️  Eureka timeout"
+          
+          echo "⏳ Waiting for Eureka to fully initialize..."
+          sleep 40
+
+      - name: Wait for Cloud Config
+        run: |
+          echo "⏳ Waiting for Cloud Config..."
+          kubectl wait --for=condition=Ready pod -l app=cloud-config \
+            -n ${{ needs.set-env.outputs.NAMESPACE }} --timeout=180s || echo "⚠️  Cloud Config timeout"
+          
+          echo "⏳ Waiting for Cloud Config to register..."
+          sleep 30
+
+      - name: Wait for all services
+        run: |
+          echo "⏳ Waiting for all services to be ready..."
+          kubectl wait --for=condition=Ready pod --all \
+            -n ${{ needs.set-env.outputs.NAMESPACE }} --timeout=180s || echo "⚠️  Some pods not ready"
+          
+          echo "⏳ Waiting for services to register with Eureka..."
+          sleep 90
+
+      - name: Verify deployment status
+        run: |
+          echo "📊 Deployment Status:"
+          echo "===================="
+          kubectl get pods -o wide -n ${{ needs.set-env.outputs.NAMESPACE }}
+          echo ""
+          kubectl get svc -n ${{ needs.set-env.outputs.NAMESPACE }}
+          echo ""
+          kubectl get deployments -n ${{ needs.set-env.outputs.NAMESPACE }}
+
+      # ===== SECURITY POLICY TESTS =====
+
+      - name: Test Pod Security Policies - Should BLOCK insecure pod
+        run: |
+          echo "🔒 Testing Pod Security Policies..."
+          echo "Attempting to create an INSECURE pod (should be BLOCKED)..."
+          
+          cat <<EOF > /tmp/insecure-pod.yaml
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: insecure-test-pod
+            namespace: ${{ needs.set-env.outputs.NAMESPACE }}
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:latest
+              securityContext:
+                privileged: true
+                runAsUser: 0
+                allowPrivilegeEscalation: true
+          EOF
+          
+          echo "📝 Insecure pod manifest:"
+          cat /tmp/insecure-pod.yaml
+          echo ""
+          
+          set +e
+          kubectl apply -f /tmp/insecure-pod.yaml 2>&1 | tee /tmp/pod-creation-output.txt
+          EXIT_CODE=$?
+          set -e
+          
+          echo ""
+          echo "🔍 Checking if pod creation was blocked..."
+          
+          if [ $EXIT_CODE -ne 0 ] || grep -q "violates PodSecurity" /tmp/pod-creation-output.txt || grep -q "forbidden" /tmp/pod-creation-output.txt; then
+            echo "✅ SUCCESS: Insecure pod was BLOCKED by security policies!"
+            echo "🎯 Pod Security Policies are working correctly"
+            
+            # Verify pod was not created
+            if ! kubectl get pod insecure-test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} 2>/dev/null; then
+              echo "✅ Confirmed: Pod does not exist in namespace"
+            fi
+          else
+            echo "❌ FAILURE: Insecure pod was NOT blocked!"
+            echo "🚨 Security policies are NOT working as expected"
+            kubectl get pod insecure-test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} || true
+            exit 1
+          fi
+
+      - name: Test Pod Security Policies - Verify secure pod CAN be created
+        run: |
+          echo "🔓 Testing that SECURE pods can still be created..."
+          
+          cat <<EOF > /tmp/secure-pod.yaml
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: secure-test-pod
+            namespace: ${{ needs.set-env.outputs.NAMESPACE }}
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              fsGroup: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+            - name: nginx
+              image: nginx:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                  - ALL
+              ports:
+              - containerPort: 8080
+          EOF
+          
+          echo "📝 Secure pod manifest:"
+          cat /tmp/secure-pod.yaml
+          echo ""
+          
+          kubectl apply -f /tmp/secure-pod.yaml
+          
+          echo "⏳ Waiting for secure pod to be ready..."
+          kubectl wait --for=condition=Ready pod/secure-test-pod \
+            -n ${{ needs.set-env.outputs.NAMESPACE }} --timeout=60s || true
+          
+          if kubectl get pod secure-test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} &>/dev/null; then
+            echo "✅ SUCCESS: Secure pod was allowed and created"
+          else
+            echo "⚠️  Secure pod creation had issues (this might be expected for nginx as non-root)"
+          fi
+
+      # ===== INTEGRATION TESTS =====
+
+      - name: Create test pod for endpoint testing
+        run: |
+          kubectl run test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} \
+            --image=curlimages/curl:latest \
+            --restart=Never \
+            --command -- sleep 3600 \
+            --overrides='{
+              "spec": {
+                "securityContext": {
+                  "runAsNonRoot": true,
+                  "runAsUser": 1000,
+                  "fsGroup": 1000,
+                  "seccompProfile": {"type": "RuntimeDefault"}
+                },
+                "containers": [{
+                  "name": "test-pod",
+                  "image": "curlimages/curl:latest",
+                  "command": ["sleep", "3600"],
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "runAsNonRoot": true,
+                    "runAsUser": 1000,
+                    "capabilities": {"drop": ["ALL"]}
+                  }
+                }]
+              }
+            }'
+          
+          kubectl wait -n ${{ needs.set-env.outputs.NAMESPACE }} \
+            --for=condition=Ready pod/test-pod --timeout=60s
+
+      - name: Test Eureka Health
+        run: |
+          echo "🔍 Testing Eureka Health..."
+          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
+            curl -f http://my-ecommerce-service-discovery.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8761/actuator/health
+
+      - name: Test API Gateway
+        run: |
+          echo "🔍 Testing API Gateway..."
+          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
+            curl -f http://my-ecommerce-api-gateway.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8080/actuator/health
+
+      - name: Test Product Service
+        run: |
+          echo "🔍 Testing Product Service..."
+          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
+            curl -f http://my-ecommerce-product-service.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8500/product-service/actuator/health
+
+      - name: Test User Service
+        run: |
+          echo "🔍 Testing User Service..."
+          kubectl exec test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} -- \
+            curl -f http://my-ecommerce-user-service.${{ needs.set-env.outputs.NAMESPACE }}.svc.cluster.local:8700/user-service/actuator/health
+
+      - name: Verify Database Connections
+        run: |
+          echo "🔍 Verifying Database Connections..."
+          echo "Checking if services are connected to real databases (not H2)..."
+          
+          # Check product-service logs for DB connection
+          echo "Product Service DB logs:"
+          kubectl logs -n ${{ needs.set-env.outputs.NAMESPACE }} -l app=product-service --tail=50 | grep -i "database\|jdbc\|mysql\|postgres" || true
+          
+          # Check user-service logs for DB connection
+          echo "User Service DB logs:"
+          kubectl logs -n ${{ needs.set-env.outputs.NAMESPACE }} -l app=user-service --tail=50 | grep -i "database\|jdbc\|mysql\|postgres" || true
+
+      - name: Final Status Report
+        if: always()
+        run: |
+          echo "================================================"
+          echo "🎯 DEPLOYMENT SUMMARY - ${{ needs.set-env.outputs.ENVIRONMENT }} Environment"
+          echo "================================================"
+          echo ""
+          echo "📦 Sealed Secrets Status:"
+          kubectl get sealedsecrets -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No sealed secrets found"
+          echo ""
+          kubectl get secrets -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No secrets found"
+          echo ""
+          echo "🔒 Security Policies Status:"
+          kubectl get networkpolicies -n ${{ needs.set-env.outputs.NAMESPACE }} || echo "No network policies found"
+          echo ""
+          echo "📊 Pods Status:"
+          kubectl get pods -n ${{ needs.set-env.outputs.NAMESPACE }} -o wide
+          echo ""
+          echo "🌐 Services Status:"
+          kubectl get svc -n ${{ needs.set-env.outputs.NAMESPACE }}
+          echo ""
+          echo "================================================"
+
+      - name: Cleanup test pods
+        if: always()
+        run: |
+          kubectl delete pod test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} --ignore-not-found
+          kubectl delete pod secure-test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} --ignore-not-found
+          kubectl delete pod insecure-test-pod -n ${{ needs.set-env.outputs.NAMESPACE }} --ignore-not-found

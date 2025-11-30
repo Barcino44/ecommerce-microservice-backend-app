@@ -94,7 +94,7 @@ spec:
             - configMapRef:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-config
           env:
-            {{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+            {{- if or (eq .Values.global.namespace "qa") (eq .Values.global.namespace "prod") }}
 
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
