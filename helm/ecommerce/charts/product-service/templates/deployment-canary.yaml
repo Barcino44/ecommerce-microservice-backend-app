@@ -71,6 +71,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.canary.image.repository }}:{{ .Values.canary.image.tag }}"
           imagePullPolicy: {{ .Values.canary.image.imagePullPolicy | default "IfNotPresent" }}
+          {{- if .Values.resources }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}

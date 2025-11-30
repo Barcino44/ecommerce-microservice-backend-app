@@ -37,6 +37,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.green.image.repository }}:{{ .Values.green.image.tag }}"
+          {{- if .Values.resources }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}

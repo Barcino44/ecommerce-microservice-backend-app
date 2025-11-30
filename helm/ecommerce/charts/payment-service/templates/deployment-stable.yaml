@@ -64,6 +64,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
+          {{- if .Values.resources }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}
