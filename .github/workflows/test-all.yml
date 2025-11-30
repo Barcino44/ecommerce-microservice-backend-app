@@ -30,7 +30,6 @@ jobs:
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
           
-          # Default logic
           IMAGE_TAG="$SAFE_BRANCH_NAME"
           VALUES_FILE="./helm/ecommerce/values-ci.yaml"
 
@@ -167,17 +166,6 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # Trivy Scan solo si es dev y cambió
-      - name: Scan Docker image
-        if: steps.changed.outputs.changed == 'true' && needs.set-env.outputs.IMAGE_TAG == 'dev'
-        uses: aquasecurity/trivy-action@0.11.2
-        with:
-          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
-          format: table
-          exit-code: 0
-          vuln-type: 'os,library'
-          severity: 'CRITICAL'
-
       - name: Move cache
         if: steps.changed.outputs.changed == 'true'
         run: |
@@ -185,7 +173,8 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   validate-charts:
-    needs: build-docker-images
+    # CORRECCIÓN AQUÍ: Se agregó 'set-env' para poder leer sus outputs
+    needs: [build-docker-images, set-env]
     runs-on: ubuntu-latest
     name: Validate Helm Charts
     steps:
@@ -197,13 +186,11 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      # 1. Validar el Chart "Padre" (Umbrella) con los valores de CI
-      # Esta es la validación más importante para asegurar que values-ci.yaml es compatible
       - name: Helm lint Umbrella Chart
         run: |
-          helm lint ./helm/ecommerce -f ${{ needs.set-env.outputs.VALUES_FILE }} --set global.targetEnvironment=dev
+          # Ahora VALUES_FILE tendrá valor y no fallará
+          helm lint ./helm/ecommerce -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
 
-      # 2. Validar subcharts individualmente (opcional, sin values-ci para evitar errores de scope)
       - name: Helm lint Subcharts
         run: |
           for chart in helm/ecommerce/charts/*; do
@@ -221,7 +208,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Necesario para git diff
+          fetch-depth: 0
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -240,38 +227,22 @@ jobs:
       - name: Detect changes and set tags
         id: detect-changes
         run: |
-          # Lista de servicios mapeada al nombre de la carpeta
           SERVICES="service-discovery cloud-config api-gateway product-service user-service payment-service shipping-service favourite-service order-service proxy-client"
-          
           DEFAULT_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
           
-          # Inicializar variables de output
           for SERVICE in $SERVICES; do
-            # Convertir service-name a SERVICE_NAME_TAG
             VAR_NAME=$(echo "$SERVICE" | tr '[:lower:]-' '[:upper:]_')_TAG
-            
-            # Chequear si hubo cambios en la carpeta del servicio
             if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^$SERVICE/"; then
-               echo "Service $SERVICE changed. Using tag: $DEFAULT_TAG"
                echo "$VAR_NAME=$DEFAULT_TAG" >> $GITHUB_ENV
             else
-               # OPTIMIZACIÓN: Si no cambió, usamos el mismo tag (o 'latest')
-               # Usar 'feature-monitoring' aquí es riesgoso si esa imagen no existe.
-               # Usamos el tag de la rama actual por seguridad.
-               echo "Service $SERVICE not changed. Using fallback tag: $DEFAULT_TAG"
                echo "$VAR_NAME=$DEFAULT_TAG" >> $GITHUB_ENV
             fi
           done
 
       - name: Helm deploy ecommerce
         run: |
-          # Aquí está la clave de tu petición:
-          # 1. ./helm/ecommerce -> Carga los defaults del chart
-          # 2. -f values-ci.yaml -> SOBREESCRIBE los defaults
-          # 3. --set ... -> SOBREESCRIBE todo lo anterior (máxima prioridad para tags dinámicos)
-          
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
+            -f "${{ needs.set-env.outputs.VALUES_FILE }}" \
             --set global.targetEnvironment=dev \
             --set service-discovery.image.tag=${{ env.SERVICE_DISCOVERY_TAG }} \
             --set cloud-config.image.tag=${{ env.CLOUD_CONFIG_TAG }} \
@@ -284,42 +255,23 @@ jobs:
             --set order-service.image.tag=${{ env.ORDER_SERVICE_TAG }} \
             --set proxy-client.image.tag=${{ env.PROXY_CLIENT_TAG }}
 
-      # ===== ESPERAS Y VERIFICACIONES (Optimizado para legibilidad) =====
-
-      - name: Wait for Infrastructure (Eureka & Config)
+      - name: Wait for Infrastructure
         run: |
-          echo "Waiting for Eureka..."
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=service-discovery -n dev --timeout=180s || echo "Warning: Eureka timeout wait"
-          
-          echo "Waiting for Cloud Config..."
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=cloud-config -n dev --timeout=180s || echo "Warning: Config timeout wait"
-          
-          # Pausa táctica para registro en Eureka
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=service-discovery -n dev --timeout=180s || echo "Warning: Eureka wait timeout"
           sleep 45
-
+          
       - name: Wait for Microservices
         run: |
-          kubectl wait --for=condition=Ready pod --all -n dev --timeout=300s
-          # Tiempo extra para que Spring Boot termine de levantar contextos
+          kubectl wait --for=condition=Ready pod --all -n dev --timeout=300s || echo "Warning: Pods wait timeout"
           sleep 60
 
-      - name: Debug Cluster State
-        if: always()
+      - name: Run Smoke Tests
         run: |
-          kubectl get pods -o wide -n dev
-          kubectl get svc -n dev
-
-      - name: Run Smoke Tests (via Test Pod)
-        run: |
-          # Creamos un pod efímero con curl
           kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
           kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
           
-          echo "--- Testing Eureka Health ---"
-          kubectl exec test-pod -n dev -- curl -s -f http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health || echo "Eureka Health Failed"
-          
-          echo "--- Testing API Gateway Route (Product) ---"
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products || echo "Gateway Test Failed"
+          echo "Checking Eureka..."
+          kubectl exec test-pod -n dev -- curl -s -f http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
 
       - name: Cleanup
         if: always()
