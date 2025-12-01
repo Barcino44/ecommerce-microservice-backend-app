@@ -49,9 +49,7 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/api-gateway"
-
     tag: "feature-netpol"
-
   replicaCount: 1
   
 canary:
