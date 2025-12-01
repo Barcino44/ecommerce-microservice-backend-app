@@ -69,7 +69,7 @@ Diagrama de Arquitectura
 │    (Port 8761)      │                │            │              │           │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
-```markdown
+```
 | Servicio          | Puerto | Descripción                                      | Base de Datos |
 |-------------------|--------|--------------------------------------------------|---------------|
 | API Gateway       | 8080   | Punto de entrada único, enrutamiento y balanceo | No            |
@@ -339,7 +339,7 @@ Allow DNS: Resolución de nombres permitida
 Políticas específicas por servicio: Solo tráfico necesario
 
 Tabla de Network Policies
-```markdown
+```
 | Política                   | Scope / Servicio       | Ingress Permitido                                                                 | Egress Permitido                                                                 | Descripción                 |
 |---------------------------|-------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------|-----------------------------|
 | default-deny-all          | Namespace completo      | ❌ Deny All                                                                        | ❌ Deny All                                                                       | Bloqueo por defecto         |
