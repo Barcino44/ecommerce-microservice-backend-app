@@ -34,6 +34,7 @@ Múltiples estrategias de despliegue (Blue-Green, Canary)
 
 
 🏗️ Arquitectura
+```bash
 Diagrama de Arquitectura
                                     ┌─────────────────┐
                                     │   Internet      │
@@ -67,10 +68,10 @@ Diagrama de Arquitectura
 │     (Eureka)        │   (Port 9296)  │ (Tracing)  │  (Metrics)   │   (UI)   │
 │    (Port 8761)      │                │            │              │           │
 └──────────────────────────────────────────────────────────────────────────────┘
-Microservicios
-ServicioPuertoDescripciónBase de DatosAPI Gateway8080Punto de entrada único, enrutamiento y balanceo de cargaNoUser Service8700Gestión de usuarios y autenticaciónMySQLProduct Service8500Catálogo de productosMySQLOrder Service8300Procesamiento de órdenesMySQLPayment Service8400Gestión de pagosMySQLShipping Service8600Gestión de envíosMySQLFavourite Service8800Lista de favoritos de usuariosMySQLProxy Client8900Cliente proxy para llamadas HTTPNo
-Servicios de Infraestructura
-ServicioPuertoFunciónService Discovery (Eureka)8761Registro y descubrimiento de serviciosCloud Config9296Configuración centralizada desde GitHubJaeger16686 (UI), 9411 (Zipkin)Trazabilidad distribuidaPrometheus9090Recolección de métricasGrafana3000Visualización de métricas y dashboardsLocust8089Pruebas de carga
+```
+```bash
+PolicyScopeIngressEgressDescripcióndefault-deny-allNamespace completo❌ Deny All❌ Deny AllBloqueo por defectoallow-dnsNamespace completo-✅ kube-system:53/UDPResolución DNSapi-gateway-policyapi-gateway✅ Ingress Controller✅ Prometheus✅ Todos los microservicios✅ DNSGateway principaluser-service-policyuser-service✅ api-gateway✅ favourite-service✅ Prometheus✅ user-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de usuariosproduct-service-policyproduct-service✅ proxy-client✅ favourite-service✅ shipping-service✅ Prometheus✅ product-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Catálogo de productosorder-service-policyorder-service✅ shipping-service✅ payment-service✅ Prometheus✅ order-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Procesamiento de órdenespayment-service-policypayment-service✅ api-gateway✅ Prometheus✅ payment-service-db:3306✅ order-service:8300✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de pagosshipping-service-policyshipping-service✅ api-gateway✅ Prometheus✅ shipping-service-db:3306✅ order-service:8300✅ product-service:8500✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de envíosfavourite-service-policyfavourite-service✅ api-gateway✅ Prometheus✅ favourite-service-db:3306✅ product-service:8500✅ user-service:8700✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Lista de favoritosservice-discovery-policyservice-discovery✅ Todos los microservicios✅ Prometheus✅ jaeger:9411✅ DNSEureka Servercloud-config-policycloud-config✅ Todos los microservicios✅ Prometheus✅ GitHub (443/HTTPS)✅ eureka:8761✅ jaeger:9411✅ DNSConfiguración centralizadajaeger-policyjaeger✅ Todos los microservicios✅ Prometheus:14269✅ Internet (80/443)✅ DNSTrazabilidad distribuida*-db-policyBases de datos MySQL✅ Solo su microservicio✅ DNSAislamiento de datos
+```
 
 ✨ Características Principales
 🔒 Seguridad
@@ -184,12 +185,11 @@ kubectl get ingress -n <namespace>
 
 # Verificar HPA
 kubectl get hpa -n <namespace>
-```
 
----
+```bash
 
 ## 📁 Estructura del Proyecto
-```
+
 helm/
 ├── ecommerce/                          # Chart principal (umbrella)
 │   ├── Chart.yaml                      # Metadata del chart
@@ -254,7 +254,7 @@ helm/
         │   └── ...
         └── qa/
             └── ...
-
+```
 ⚙️ Configuración de Servicios
 ConfigMaps
 Los ConfigMaps almacenan configuración no sensible inyectada como variables de entorno:
@@ -329,7 +329,9 @@ Allow DNS: Resolución de nombres permitida
 Políticas específicas por servicio: Solo tráfico necesario
 
 Tabla de Network Policies
+```
 PolicyScopeIngressEgressDescripcióndefault-deny-allNamespace completo❌ Deny All❌ Deny AllBloqueo por defectoallow-dnsNamespace completo-✅ kube-system:53/UDPResolución DNSapi-gateway-policyapi-gateway✅ Ingress Controller✅ Prometheus✅ Todos los microservicios✅ DNSGateway principaluser-service-policyuser-service✅ api-gateway✅ favourite-service✅ Prometheus✅ user-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de usuariosproduct-service-policyproduct-service✅ proxy-client✅ favourite-service✅ shipping-service✅ Prometheus✅ product-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Catálogo de productosorder-service-policyorder-service✅ shipping-service✅ payment-service✅ Prometheus✅ order-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Procesamiento de órdenespayment-service-policypayment-service✅ api-gateway✅ Prometheus✅ payment-service-db:3306✅ order-service:8300✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de pagosshipping-service-policyshipping-service✅ api-gateway✅ Prometheus✅ shipping-service-db:3306✅ order-service:8300✅ product-service:8500✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de envíosfavourite-service-policyfavourite-service✅ api-gateway✅ Prometheus✅ favourite-service-db:3306✅ product-service:8500✅ user-service:8700✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Lista de favoritosservice-discovery-policyservice-discovery✅ Todos los microservicios✅ Prometheus✅ jaeger:9411✅ DNSEureka Servercloud-config-policycloud-config✅ Todos los microservicios✅ Prometheus✅ GitHub (443/HTTPS)✅ eureka:8761✅ jaeger:9411✅ DNSConfiguración centralizadajaeger-policyjaeger✅ Todos los microservicios✅ Prometheus:14269✅ Internet (80/443)✅ DNSTrazabilidad distribuida*-db-policyBases de datos MySQL✅ Solo su microservicio✅ DNSAislamiento de datos
+```
 Ejemplo de Network Policy
 yamlapiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
