@@ -36,14 +36,14 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-netpol"
+    tag: "feature-hpa"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/shipping-service"
 
-    tag: "feature-netpol"
+    tag: "feature-hpa"
 
   replicaCount: 0
 

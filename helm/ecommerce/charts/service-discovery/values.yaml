@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/service-discovery"
-    tag:  "feature-netpol"
+    tag:  "feature-hpa"
 
 green:
   image:
     repository: "barcino/service-discovery"
-    tag: "feature-netpol"
+    tag: "feature-hpa"
 serviceAccount:
   create: true
   automount: false

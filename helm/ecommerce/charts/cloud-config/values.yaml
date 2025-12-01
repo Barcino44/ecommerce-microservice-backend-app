@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-netpol"
+    tag: "feature-hpa"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-netpol"
+    tag: "feature-hpa"
 serviceAccount:
   create: true
   automount: false
