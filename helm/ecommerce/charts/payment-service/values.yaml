@@ -41,6 +41,26 @@ canary:
     tag: "feature-netpol"
   replicaCount: 0
 
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1700Mi"
+  limits:
+    cpu: "750m"
+    memory: "1900Mi"
+
+hpa:
+  stable:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    cpuAverage: 60
+    memoryAverage: 80
+
+  canary:
+    enabled: false 
+
+
 prometheus:
   enabled: true
   scrape: "true"

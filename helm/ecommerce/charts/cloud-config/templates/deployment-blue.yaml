@@ -37,6 +37,10 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.blue.image.repository }}:{{ .Values.blue.image.tag }}"
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}

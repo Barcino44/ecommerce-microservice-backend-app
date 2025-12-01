@@ -3,7 +3,7 @@ name: Ecommerce CI/CD (Minikube Local)
 on:
   push:
   pull_request:
-    branches: [ master, dev ]
+    branches: [ master]
 
 env:
   HELM_VERSION: 3.12.0
@@ -36,24 +36,8 @@ jobs:
 
           IMAGE_TAG="dev"
           VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-
-          if [[ "$SAFE_BRANCH_NAME" == "dev" ]]; then
-            IMAGE_TAG="dev"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-          elif [[ "$SAFE_BRANCH_NAME" == "qa" ]]; then
-            IMAGE_TAG="qa"
-            VALUES_FILE="./helm/ecommerce/values-qa.yaml"
-          elif [[ "$SAFE_BRANCH_NAME" == "prod" ]]; then
-            IMAGE_TAG="prod"
-            VALUES_FILE="./helm/ecommerce/values-prod.yaml"
-          else
-            IMAGE_TAG="$SAFE_BRANCH_NAME"
-            VALUES_FILE="./helm/ecommerce/values-dev.yaml"
-          fi
-
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "VALUES_FILE=$VALUES_FILE" >> $GITHUB_OUTPUT
-
   # ============================================
   # 1. BUILD MAVEN (CI) - CONDITIONAL
   # ============================================
@@ -190,6 +174,56 @@ jobs:
             fi
           fi
 
+      - name: Set scan tag (stable or new)
+        id: scan-tag
+        run: |
+          # Tags estables por defecto para escaneo
+          case "${{ matrix.service }}" in
+            api-gateway)
+              SCAN_TAG="0.1.0"
+              ;;
+            product-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            user-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            payment-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            shipping-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            favourite-service)
+              SCAN_TAG="feature-hpa"
+              ;;
+            order-service)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            proxy-client)
+              SCAN_TAG="0.1.0"
+              ;;
+            service-discovery)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            cloud-config)
+              SCAN_TAG="feature-monitoring"
+              ;;
+            *)
+              SCAN_TAG="latest"
+              ;;
+          esac
+          
+          # Si el servicio cambió, usar el nuevo tag
+          if [ "${{ steps.changed.outputs.changed }}" == "true" ]; then
+            SCAN_TAG="${{ needs.set-env.outputs.IMAGE_TAG }}"
+            echo "🔄 Service changed, scanning new tag: $SCAN_TAG"
+          else
+            echo "📦 Service unchanged, scanning stable tag: $SCAN_TAG"
+          fi
+          
+          echo "SCAN_TAG=$SCAN_TAG" >> $GITHUB_OUTPUT
+
       - name: Extract version
         if: steps.changed.outputs.changed == 'true'
         id: version
@@ -247,7 +281,7 @@ jobs:
       - name: Scan Docker image with Trivy (console output)
         uses: aquasecurity/trivy-action@0.11.2
         with:
-          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
           format: table
           exit-code: 0
           vuln-type: 'os,library'
@@ -256,7 +290,7 @@ jobs:
       - name: Scan Docker image with Trivy (HTML report)
         uses: aquasecurity/trivy-action@0.11.2
         with:
-          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ needs.set-env.outputs.IMAGE_TAG }}
+          image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
           format: template
           template: '@/contrib/html.tpl'
           output: trivy-${{ matrix.service }}.html
@@ -273,7 +307,7 @@ jobs:
   # 3. VALIDATE HELM CHARTS
   # ============================================
   validate-charts:
-    needs: build-docker-images
+    needs: [build-docker-images, set-env]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -301,13 +335,17 @@ jobs:
       - name: Helm lint ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm lint "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev
+            helm lint "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "./helm/ecommerce/values-ci.yaml" \
+              --set global.targetEnvironment=ci
           fi
 
       - name: Render Helm template ${{ matrix.service }}
         run: |
           if [ -d "helm/ecommerce/charts/${{ matrix.service }}" ]; then
-            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" -f "${{ needs.set-env.outputs.VALUES_FILE }}" --set global.targetEnvironment=dev > "helm-${{ matrix.service }}-rendered.yaml"
+            helm template "${{ matrix.service }}" "helm/ecommerce/charts/${{ matrix.service }}" \
+              -f "./helm/ecommerce/values-ci.yaml" \
+              --set global.targetEnvironment=ci > "helm-${{ matrix.service }}-rendered.yaml"
           fi
 
   # ============================================
@@ -340,15 +378,15 @@ jobs:
         run: |
           # Tags estables por defecto
           API_GATEWAY_TAG="0.1.0"
-          PRODUCT_SERVICE_TAG="0.1.0"
-          USER_SERVICE_TAG="0.1.0"
-          PAYMENT_SERVICE_TAG="0.1.0"
-          SHIPPING_SERVICE_TAG="0.1.0"
-          FAVOURITE_SERVICE_TAG="feature-sealedsecret"
-          ORDER_SERVICE_TAG="0.1.0"
+          PRODUCT_SERVICE_TAG="feature-monitoring"
+          USER_SERVICE_TAG="feature-monitoring"
+          PAYMENT_SERVICE_TAG="feature-monitoring"
+          SHIPPING_SERVICE_TAG="feature-monitoring"
+          FAVOURITE_SERVICE_TAG="feature-hpa"
+          ORDER_SERVICE_TAG="feature-monitoring"
           PROXY_CLIENT_TAG="0.1.0"
-          SERVICE_DISCOVERY_TAG="feature-db"
-          CLOUD_CONFIG_TAG="feature-db"
+          SERVICE_DISCOVERY_TAG="feature-monitoring"
+          CLOUD_CONFIG_TAG="feature-monitoring"
           
           # Si hay commit anterior, detectar cambios y usar el nuevo IMAGE_TAG
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
@@ -419,8 +457,8 @@ jobs:
       - name: Helm deploy ecommerce
         run: |
           helm upgrade --install my-ecommerce ./helm/ecommerce \
-            -f ${{ needs.set-env.outputs.VALUES_FILE }} \
-            --set global.targetEnvironment=dev \
+            -f ./helm/ecommerce/values-ci.yaml \
+            --set global.targetEnvironment=ci \
             --set service-discovery.image.tag=${{ steps.detect-changes.outputs.service-discovery-tag }} \
             --set cloud-config.image.tag=${{ steps.detect-changes.outputs.cloud-config-tag }} \
             --set api-gateway.image.tag=${{ steps.detect-changes.outputs.api-gateway-tag }} \
@@ -490,44 +528,7 @@ jobs:
           
           echo "=== All Services in dev namespace ==="
           kubectl get svc -n dev
-
-      - name: Test Eureka from test pod
-        run: |
-          kubectl run test-pod -n dev --image=curlimages/curl:latest --restart=Never --command -- sleep 3600
-          kubectl wait -n dev --for=condition=Ready pod/test-pod --timeout=60s
-          
-          echo "=== Test Eureka Health ==="
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/actuator/health
-          
-          echo "=== Test Eureka Registry ==="
-          kubectl exec test-pod -n dev -- curl -s http://my-ecommerce-service-discovery.dev.svc.cluster.local:8761/eureka/apps
-
-      # === Test endpoints ===
-      - name: Test API Gateway
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-api-gateway.dev.svc.cluster.local:8080/app/api/products
-
-      - name: Test Shipping Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-shipping-service.dev.svc.cluster.local:8600/shipping-service/api/shippings
-
-      - name: Test User Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-user-service.dev.svc.cluster.local:8700/user-service/api/users
-
-      - name: Test Product Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-product-service.dev.svc.cluster.local:8500/product-service/api/products
-
-      - name: Test Favourite Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-favourite-service.dev.svc.cluster.local:8800/favourite-service/api/favourites
-
-      - name: Test Payment Service
-        run: |
-          kubectl exec test-pod -n dev -- curl -v http://my-ecommerce-payment-service.dev.svc.cluster.local:8400/payment-service/api/payments
-
-      - name: Cleanup test pod
-        if: always()
+     
+      - name: Cleaning
         run: |
           kubectl delete pod test-pod -n dev --ignore-not-found

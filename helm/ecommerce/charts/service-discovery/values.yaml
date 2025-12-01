@@ -42,6 +42,19 @@ deploymentStrategy:
   type: blue-green
   active: blue 
 
+resources:
+  requests:
+    cpu: "750m"
+    memory: "1700Mi"
+  limits:
+    cpu: "900m"
+    memory: "1900Mi"
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 1
+  cpuAverage: 60   
+  memoryAverage: 80  
 prometheus:
   enabled: true
   scrape: "true"

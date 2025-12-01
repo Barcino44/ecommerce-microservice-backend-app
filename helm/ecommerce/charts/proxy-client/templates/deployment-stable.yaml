@@ -73,6 +73,10 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}

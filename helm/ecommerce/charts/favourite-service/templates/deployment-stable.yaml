@@ -73,6 +73,11 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.stable.image.repository }}:{{ .Values.stable.image.tag }}"
           imagePullPolicy: {{ .Values.stable.image.imagePullPolicy | default "IfNotPresent" }}
+
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             {{- if .Values.containerSecurityContext.enabled }}
             allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
@@ -93,7 +98,7 @@ spec:
             - configMapRef:
                 name: {{ .Release.Name }}-{{ .Chart.Name }}-config
           env:
-            {{- if or (eq .Values.global.namespace "stage") (eq .Values.global.namespace "prod") }}
+            {{- if or (eq .Values.global.namespace "qa") (eq .Values.global.namespace "prod") }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
