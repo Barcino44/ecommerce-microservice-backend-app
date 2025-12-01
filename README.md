@@ -1,621 +1,654 @@
-# e-Commerce-boot μServices 
+E-Commerce Microservices Platform - Kubernetes Deployment
 
-## Important Note: This project's new milestone is to move The whole system to work on Kubernetes, so stay tuned.
+https://helm.sh/
+https://kubernetes.io/
 
-<!--## Better Code Hub
-I analysed this repository according to the clean code standards on [Better Code Hub](https://bettercodehub.com/) just to get an independent opinion of how bad the code is. Surprisingly, the compliance score is high!
--->
-## Introduction
-- This project is a development of a small set of **Spring Boot** and **Cloud** based Microservices projects that implement cloud-native intuitive, Reactive Programming, Event-driven, Microservices design patterns, and coding best practices.
-- The project follows **CloudNative**<!--(https://www.cncf.io/)--> recommendations and The [**twelve-factor app**](https://12factor.net/) methodology for building *software-as-a-service apps* to show how μServices should be developed and deployed.
-- This project uses cutting edge technologies like Docker, Kubernetes, Elasticsearch Stack for
- logging and monitoring, Java SE 11, H2, and MySQL databases, all components developed with TDD in mind, covering integration & performance testing, and many more.
- - This project is going to be developed as stages, and all such stage steps are documented under
-  the project **e-Commerce-boot μServices** **README** file <!--[wiki page](https://github.com/mohamed-taman/Springy-Store-Microservices/wiki)-->.
+📋 Tabla de Contenidos
+
+Descripción General
+Arquitectura
+Características Principales
+Requisitos Previos
+Instalación
+Estructura del Proyecto
+Configuración de Servicios
+Network Policies
+Monitoreo y Observabilidad
+Seguridad
+CI/CD
+Estrategias de Despliegue
+Operaciones
+Troubleshooting
+
+
+🎯 Descripción General
+Plataforma de e-commerce basada en microservicios desplegada en Kubernetes utilizando Helm charts. El proyecto implementa patrones modernos de arquitectura cloud-native incluyendo:
+
+Microservicios Spring Boot con patrón API Gateway
+Service Discovery con Eureka
+Configuración centralizada con Spring Cloud Config
+Observabilidad completa con Prometheus, Grafana y Jaeger
+Seguridad robusta con Network Policies, Sealed Secrets y RBAC
+CI/CD automatizado con GitHub Actions
+Múltiples estrategias de despliegue (Blue-Green, Canary)
+
+
+🏗️ Arquitectura
+Diagrama de Arquitectura
+                                    ┌─────────────────┐
+                                    │   Internet      │
+                                    └────────┬────────┘
+                                             │
+                                    ┌────────▼────────┐
+                                    │ Ingress (NGINX) │
+                                    │   TLS/HTTPS     │
+                                    └────────┬────────┘
+                                             │
+                                    ┌────────▼────────┐
+                                    │  API Gateway    │
+                                    │   (Port 8080)   │
+                                    └────────┬────────┘
+                                             │
+                ┌────────────────────────────┼────────────────────────────┐
+                │                            │                            │
+        ┌───────▼──────┐          ┌─────────▼────────┐        ┌─────────▼────────┐
+        │ User Service │          │ Product Service  │        │ Order Service    │
+        │  (Port 8700) │          │   (Port 8500)    │        │  (Port 8300)     │
+        └──────┬───────┘          └────────┬─────────┘        └────────┬─────────┘
+               │                           │                            │
+        ┌──────▼───────┐          ┌────────▼─────────┐        ┌────────▼─────────┐
+        │   MySQL DB   │          │    MySQL DB      │        │    MySQL DB      │
+        └──────────────┘          └──────────────────┘        └──────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         Infrastructure Services                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Service Discovery  │  Cloud Config  │   Jaeger   │  Prometheus  │  Grafana │
+│     (Eureka)        │   (Port 9296)  │ (Tracing)  │  (Metrics)   │   (UI)   │
+│    (Port 8761)      │                │            │              │           │
+└──────────────────────────────────────────────────────────────────────────────┘
+Microservicios
+ServicioPuertoDescripciónBase de DatosAPI Gateway8080Punto de entrada único, enrutamiento y balanceo de cargaNoUser Service8700Gestión de usuarios y autenticaciónMySQLProduct Service8500Catálogo de productosMySQLOrder Service8300Procesamiento de órdenesMySQLPayment Service8400Gestión de pagosMySQLShipping Service8600Gestión de envíosMySQLFavourite Service8800Lista de favoritos de usuariosMySQLProxy Client8900Cliente proxy para llamadas HTTPNo
+Servicios de Infraestructura
+ServicioPuertoFunciónService Discovery (Eureka)8761Registro y descubrimiento de serviciosCloud Config9296Configuración centralizada desde GitHubJaeger16686 (UI), 9411 (Zipkin)Trazabilidad distribuidaPrometheus9090Recolección de métricasGrafana3000Visualización de métricas y dashboardsLocust8089Pruebas de carga
+
+✨ Características Principales
+🔒 Seguridad
+
+Pod Security Standards: Políticas baseline (dev/qa) y restricted (prod)
+Network Policies: Segmentación de red granular
+Sealed Secrets: Encriptación de secretos con Bitnami Sealed Secrets
+RBAC: Control de acceso basado en roles
+TLS/HTTPS: Certificados para endpoints públicos
+Security Contexts: Ejecución sin privilegios, filesystem read-only
+
+📊 Observabilidad
+
+Métricas: Spring Boot Actuator + Prometheus
+Visualización: Dashboards personalizados en Grafana
+Trazabilidad: Jaeger con compatibilidad Zipkin
+Logging: Logs centralizados por servicio
+Alertas: Sistema de alertas en Prometheus
+
+🚀 Deployment
+
+Blue-Green: Para servicios críticos (Cloud Config, Service Discovery)
+Canary: Para servicios orientados al cliente
+HPA: Autoescalado horizontal basado en CPU/memoria
+Health Checks: Liveness y readiness probes
+Rolling Updates: Actualizaciones sin downtime
+
+🔄 CI/CD
+
+GitHub Actions: Pipeline completo automatizado
+Escaneo de vulnerabilidades: Trivy para imágenes Docker
+Validación de Helm: Lint y template rendering
+Testing: Pruebas automatizadas en cluster Kind
+Multi-ambiente: Despliegue en dev, qa, prod
+
+
+📦 Requisitos Previos
+Software Necesario
+bash# Kubernetes
+kubectl >= 1.24
+
+# Helm
+helm >= 3.10
+
+# Docker (opcional, para desarrollo local)
+docker >= 20.10
+
+# Kubeseal (para gestión de secrets)
+kubeseal >= 0.23.0
+Cluster Kubernetes
+
+Mínimo: 4 CPU, 8GB RAM
+Recomendado: 8 CPU, 16GB RAM
+Storage Class: standard disponible
+Ingress Controller: NGINX instalado
+
+
+🚀 Instalación
+1. Instalación Rápida (Producción)
+bash# Clonar repositorio
+git clone <repository-url>
+cd helm/ecommerce
+
+# Instalar en producción
+helm install my-ecommerce . -f values-prod.yaml
+
+# Aplicar sealed secrets
+kubectl apply -f ../secrets/sealedsecrets/prod/
+2. Instalación por Ambientes
+Desarrollo (dev)
+bashhelm install my-ecommerce . -f values-dev.yaml
+Características:
+
+Base de datos H2 en memoria
+1 réplica por servicio
+Pod Security: baseline
+Sin persistencia de datos
+
+QA/Staging
+bashhelm install my-ecommerce . -f values-qa.yaml
+kubectl apply -f ../secrets/sealedsecrets/qa/
+Características:
+
+MySQL persistente
+1 réplica por servicio
+Pod Security: baseline
+PersistentVolumes de 10Gi
+
+Producción
+bashhelm install my-ecommerce . -f values-prod.yaml
+kubectl apply -f ../secrets/sealedsecrets/prod/
+Características:
+
+MySQL persistente con backup
+HPA habilitado
+Pod Security: restricted
+Network Policies estrictas
+
+3. Instalación de Monitoreo
+bashcd helm/monitoring
+helm install my-monitoring . -f values-monitoring.yaml
+4. Verificación
+bash# Verificar pods
+kubectl get pods -n <namespace>
+
+# Verificar servicios
+kubectl get svc -n <namespace>
+
+# Verificar ingress
+kubectl get ingress -n <namespace>
+
+# Verificar HPA
+kubectl get hpa -n <namespace>
+```
+
 ---
-## Getting started
-### System components Structure
-Let's explain first the system structure to understand its components:
+
+## 📁 Estructura del Proyecto
 ```
-ecommerce-microservice-backend-app [μService] --> Parent folder.
-|- docs --> All docs and diagrams.
-|- k8s --> All **Kubernetes** config files.
-    |- proxy-client --> Authentication & Authorization µService, exposing all 
-    |- api-gateway --> API Gateway server
-    |- service-discovery --> Service Registery server
-    |- cloud-config --> Centralized Configuration server
-    |- user-service --> Manage app users (customers & admins) as well as their credentials
-    |- product-service --> Manage app products and their respective categories
-    |- favourite-service --> Manage app users' favourite products added to their own favourite list
-    |- order-service --> Manage app orders based on carts
-    |- shipping-service --> Manage app order-shipping products
-    |- payment-service --> Manage app order payments
-|- compose.yml --> contains all services landscape with Kafka  
-|- run-em-all.sh --> Run all microservices in separate mode. 
-|- setup.sh --> Install all shared POMs and shared libraries. 
-|- stop-em-all.sh --> Stop all services runs in standalone mode. 
-|- test-em-all.sh --> This will start all docker compose landscape and test them, then shutdown docker compose containers with test finishes (use switch start stop)
-```
-Now, as we have learned about different system components, then let's start.
+helm/
+├── ecommerce/                          # Chart principal (umbrella)
+│   ├── Chart.yaml                      # Metadata del chart
+│   ├── values-dev.yaml                 # Valores para desarrollo
+│   ├── values-qa.yaml                  # Valores para QA
+│   ├── values-prod.yaml                # Valores para producción
+│   ├── templates/
+│   │   ├── namespace.yaml              # Definición de namespace
+│   │   └── networkpolicies.yaml        # Network Policies
+│   └── charts/                         # Subcharts de microservicios
+│       ├── api-gateway/
+│       │   ├── Chart.yaml
+│       │   ├── values.yaml
+│       │   ├── files/
+│       │   │   ├── gateway.crt         # Certificado TLS
+│       │   │   └── gateway.key         # Llave privada TLS
+│       │   └── templates/
+│       │       ├── configmap.yaml
+│       │       ├── deployment-stable.yaml
+│       │       ├── deployment-canary.yaml
+│       │       ├── service.yaml
+│       │       ├── ingress.yaml
+│       │       ├── hpa.yaml
+│       │       ├── service-account.yaml
+│       │       └── tls-secret.yaml
+│       ├── user-service/
+│       ├── product-service/
+│       ├── order-service/
+│       ├── payment-service/
+│       ├── shipping-service/
+│       ├── favourite-service/
+│       ├── proxy-client/
+│       ├── service-discovery/
+│       ├── cloud-config/
+│       ├── jaeger/
+│       └── locust/
+├── monitoring/                         # Monitoreo y observabilidad
+│   ├── Chart.yaml
+│   ├── values-monitoring.yaml
+│   ├── charts/
+│   │   ├── prometheus/
+│   │   │   └── templates/
+│   │   │       ├── configmap.yaml      # Scrape configs
+│   │   │       ├── deployment.yaml
+│   │   │       ├── clusterrole.yaml
+│   │   │       └── clusterrolebinding.yaml
+│   │   └── grafana/
+│   │       ├── dashboards/             # Dashboards JSON
+│   │       │   ├── springboot-metrics.json
+│   │       │   ├── eureka.json
+│   │       │   └── jaeger.json
+│   │       └── provisioning/           # Datasources y dashboards
+│   └── templates/
+│       └── networkpolicies.yaml
+└── secrets/                            # Gestión de secretos
+    ├── sealedSecrets.sh               # Script para generar sealed secrets
+    ├── mycert.pem                     # Certificado público del controlador
+    └── sealedsecrets/
+        ├── prod/
+        │   ├── user-service-db.yaml
+        │   ├── product-service-db.yaml
+        │   └── ...
+        └── qa/
+            └── ...
 
-### System Boundary *Architecture* - μServices Landscape
+⚙️ Configuración de Servicios
+ConfigMaps
+Los ConfigMaps almacenan configuración no sensible inyectada como variables de entorno:
+yamlapiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-ecommerce-user-service-config
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SPRING_ZIPKIN_BASE_URL: "http://my-ecommerce-zipkin:9411"
+  SPRING_CONFIG_IMPORT: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://my-ecommerce-service-discovery:8761/eureka/"
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+Secrets (Sealed Secrets)
+Las credenciales de base de datos se gestionan con Sealed Secrets:
+bash# Generar sealed secrets
+./helm/secrets/sealedSecrets.sh
 
-![System Boundary](app-architecture.drawio.png)
+# Aplicar en el cluster
+kubectl apply -f helm/secrets/sealedsecrets/prod/
+Estructura de un Sealed Secret:
+yamlapiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: user-service-db-credentials
+  namespace: prod
+spec:
+  encryptedData:
+    DB_USER: AgBYPKY6A8K0gYgB0JOujJ0...
+    DB_PASSWORD: AgCU2JZE+o/Ix41cEd68dNo...
+Service Accounts
+Cada microservicio tiene su propio ServiceAccount con permisos mínimos:
+yamlapiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-ecommerce-user-service
+  namespace: prod
+automountServiceAccountToken: false  # Seguridad adicional
+Horizontal Pod Autoscaler (HPA)
+Configuración de autoescalado:
+yamlapiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-ecommerce-user-service-hpa-stable
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-ecommerce-user-service-stable
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
 
-### Required software
+🔐 Network Policies
+Modelo de Seguridad
+El proyecto implementa un modelo de Zero Trust con las siguientes capas:
 
-The following are the initially required software pieces:
+Default Deny All: Todo el tráfico bloqueado por defecto
+Allow DNS: Resolución de nombres permitida
+Políticas específicas por servicio: Solo tráfico necesario
 
-1. **Java 11**: JDK 11 LTS can be downloaded and installed from https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html
+Tabla de Network Policies
+PolicyScopeIngressEgressDescripcióndefault-deny-allNamespace completo❌ Deny All❌ Deny AllBloqueo por defectoallow-dnsNamespace completo-✅ kube-system:53/UDPResolución DNSapi-gateway-policyapi-gateway✅ Ingress Controller✅ Prometheus✅ Todos los microservicios✅ DNSGateway principaluser-service-policyuser-service✅ api-gateway✅ favourite-service✅ Prometheus✅ user-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de usuariosproduct-service-policyproduct-service✅ proxy-client✅ favourite-service✅ shipping-service✅ Prometheus✅ product-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Catálogo de productosorder-service-policyorder-service✅ shipping-service✅ payment-service✅ Prometheus✅ order-service-db:3306✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Procesamiento de órdenespayment-service-policypayment-service✅ api-gateway✅ Prometheus✅ payment-service-db:3306✅ order-service:8300✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de pagosshipping-service-policyshipping-service✅ api-gateway✅ Prometheus✅ shipping-service-db:3306✅ order-service:8300✅ product-service:8500✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Gestión de envíosfavourite-service-policyfavourite-service✅ api-gateway✅ Prometheus✅ favourite-service-db:3306✅ product-service:8500✅ user-service:8700✅ eureka:8761✅ cloud-config:9296✅ jaeger:9411Lista de favoritosservice-discovery-policyservice-discovery✅ Todos los microservicios✅ Prometheus✅ jaeger:9411✅ DNSEureka Servercloud-config-policycloud-config✅ Todos los microservicios✅ Prometheus✅ GitHub (443/HTTPS)✅ eureka:8761✅ jaeger:9411✅ DNSConfiguración centralizadajaeger-policyjaeger✅ Todos los microservicios✅ Prometheus:14269✅ Internet (80/443)✅ DNSTrazabilidad distribuida*-db-policyBases de datos MySQL✅ Solo su microservicio✅ DNSAislamiento de datos
+Ejemplo de Network Policy
+yamlapiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-service-network-policy
+  namespace: prod
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8700
+    # Desde Prometheus (monitoreo)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+    # Base de datos
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+    # Eureka
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
 
-1. **Git**: it can be downloaded and installed from https://git-scm.com/downloads
+📊 Monitoreo y Observabilidad
+Prometheus
+Configuración de Scraping:
+yamlscrape_configs:
+  # Spring Boot Actuator
+  - job_name: "spring-boot-actuator"
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [dev, qa, prod]
+    relabel_configs:
+      # Solo pods con prometheus.io/scrape=true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Construir endpoint
+      - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        separator: ":"
+        regex: (.+);(.+)
+        replacement: "$1:$2"
+        target_label: __address__
 
-1. **Maven**: Apache Maven is a software project management and comprehension tool, it can be downloaded from here https://maven.apache.org/download.cgi
+  # Jaeger
+  - job_name: "jaeger"
+    static_configs:
+      - targets: ['jaeger:14269']
 
-1. **curl**: this command-line tool for testing HTTP-based APIs can be downloaded and installed from https://curl.haxx.se/download.html
+  # Eureka
+  - job_name: "eureka"
+    static_configs:
+      - targets: ['service-discovery:8761']
+Grafana Dashboards
+El proyecto incluye 3 dashboards predefinidos:
+1. Spring Boot Metrics Dashboard
+Paneles principales:
 
-1. **jq**: This command-line JSON processor can be downloaded and installed from https://stedolan.github.io/jq/download/
+HTTP Request Rate (req/s)
+Average JVM Heap Usage (%)
+Service Health (UP/DOWN)
+Response Time Percentiles (p50, p95, p99)
+HTTP Error Rates (4xx/5xx)
+JVM Memory (Heap Used vs Max)
+JVM Threads (Live/Daemon)
+Pod CPU/Memory Usage
+Liveness/Readiness Status
+Garbage Collector Activity
 
-1. **Spring Boot Initializer**: This *Initializer* generates *spring* boot project with just what you need to start quickly! Start from here https://start.spring.io/
+Variables de Template:
 
-1. **Docker**: The fastest way to containerize applications on your desktop, and you can download it from here [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+$namespace: Filtrar por namespace
+$service: Filtrar por servicio
+$pod: Filtrar por pod
 
-1. **Kubernetes**: We can install **minikube** for testing puposes https://minikube.sigs.k8s.io/docs/start/
+2. Eureka Service Discovery Dashboard
+Paneles:
 
-   > For each future stage, I will list the newly required software. 
+Eureka Server Status
+Registered Instances
+Heartbeats Received
+Failed Registrations
+Response Time
+JVM Memory
 
-Follow the installation guide for each software website link and check your software versions from the command line to verify that they are all installed correctly.
+3. Jaeger Tracing Dashboard
+Paneles:
 
-## Using an IDE
+Received Spans
+Dropped Spans
+Queue Length
+Spans by Transport
+Ingest Errors
+Jaeger Instances
 
-I recommend that you work with your Java code using an IDE that supports the development of Spring Boot applications such as Spring Tool Suite or IntelliJ IDEA Ultimate Edition. So you can use the Spring Boot Dashboard to run the services, run each microservice test case, and many more.
+Acceso a Interfaces
+bash# Grafana (LoadBalancer)
+kubectl get svc -n monitoring my-monitoring-grafana
+# Credenciales por defecto: admin / admin123
 
-All that you want to do is just fire up your IDE **->** open or import the parent folder `ecommerce-microservice-backend-app`, and everything will be ready for you.
+# Prometheus
+kubectl port-forward -n monitoring svc/my-monitoring-prometheus 9090:9090
 
-## Data Model
-### Entity-Relationship-Diagram
-![System Boundary](ecommerce-ERD.drawio.png)
+# Jaeger UI
+kubectl port-forward -n prod svc/my-ecommerce-zipkin 16686:16686
 
-## Playing With e-Commerce-boot Project
+# Eureka Dashboard
+kubectl get svc -n prod my-ecommerce-service-discovery
 
-### Cloning It
+🛡️ Seguridad
+Pod Security Standards
+AmbientePolicyCaracterísticasdevbaseline- Permite contenedores privilegiados limitados- Filesystem parcialmente restringido- Ideal para desarrolloqabaseline- Configuración similar a dev- Mayor auditoríaprodrestricted- Máxima seguridad- runAsNonRoot obligatorio- readOnlyRootFilesystem- Todas las capabilities eliminadas- Seccomp RuntimeDefault
+Security Context (Producción)
+yaml# Pod Level
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
 
-The first thing to do is to open **git bash** command line, and then simply you can clone the project under any of your favorite places as the following:
+# Container Level
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+Sealed Secrets Workflow
+mermaidgraph LR
+    A[Secret Plaintext] -->|kubeseal| B[Sealed Secret]
+    B -->|kubectl apply| C[Kubernetes Cluster]
+    C -->|Controller decrypt| D[Secret]
+    D -->|Mount| E[Pod]
+Comandos:
+bash# 1. Obtener certificado público
+kubeseal --fetch-cert > mycert.pem
 
-```bash
-> git clone https://github.com/SelimHorri/ecommerce-microservice-backend-app.git
-```
+# 2. Crear secret y sellarlo
+echo -n "mypassword" | kubectl create secret generic my-secret \
+  --dry-run=client \
+  --from-file=password=/dev/stdin \
+  -o yaml | kubeseal --cert mycert.pem -o yaml > sealed-secret.yaml
 
-### Build & Test Them In Isolation
+# 3. Aplicar
+kubectl apply -f sealed-secret.yaml
+Escaneo de Vulnerabilidades
+El pipeline CI/CD incluye escaneo con Trivy:
+yaml- name: Scan Docker image with Trivy
+  uses: aquasecurity/trivy-action@0.11.2
+  with:
+    image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
+    format: 'template'
+    template: '@/contrib/html.tpl'
+    output: 'trivy-${{ matrix.service }}.html'
+    vuln-type: 'os,library'
+    severity: 'HIGH,CRITICAL'
 
-To build and run the test cases for each service & shared modules in the project, we need to do the following:
+🔄 CI/CD
+Pipeline GitHub Actions
+El workflow se compone de 4 jobs principales:
+mermaidgraph TD
+    A[Push/PR] --> B[Build Maven]
+    B --> C[Build & Scan Images]
+    C --> D[Validate Helm Charts]
+    D --> E[Deploy & Test]
+    
+    B --> B1[Maven Compile]
+    B --> B2[Run Tests]
+    B --> B3[Upload Artifacts]
+    
+    C --> C1[Build Docker Image]
+    C --> C2[Push to Registry]
+    C --> C3[Trivy Scan]
+    
+    D --> D1[Helm Lint]
+    D --> D2[Template Render]
+    
+    E --> E1[Kind Cluster]
+    E --> E2[Helm Install]
+    E --> E3[Verify Deployment]
+Job 1: Build Maven
+Estrategia: Matrix paralela (10 servicios)
+yamlstrategy:
+  matrix:
+    service:
+      - user-service
+      - product-service
+      - payment-service
+      # ... otros servicios
+Pasos:
 
-#### Build & Test µServices
-Now it is the time to build our **10 microservices** and run each service integration test in
- isolation by running the following commands:
+✅ Detectar cambios (git diff)
+✅ Compilar con Maven
+✅ Ejecutar tests
+✅ Subir artifacts (.jar)
 
-```bash
-selim@:~/ecommerce-microservice-backend-app$ ./mvnw clean package 
-```
+Job 2: Build & Scan Images
+Condicional: Solo en push (no en PRs)
+yamlif: github.event_name == 'push'
+Pasos:
 
-All build commands and test suite for each microservice should run successfully, and the final output should be like this:
+✅ Descargar artifacts de Maven
+✅ Build imagen Docker
+✅ Push a Docker Hub (tags: feature-X y latest)
+✅ Scan con Trivy (console + HTML report)
 
-```bash
----------------< com.selimhorri.app:ecommerce-microservice-backend >-----------
-[INFO] ------------------------------------------------------------------------
-[INFO] Reactor Summary for ecommerce-microservice-backend 0.1.0:
-[INFO] 
-[INFO] ecommerce-microservice-backend ..................... SUCCESS [  0.548 s]
-[INFO] service-discovery .................................. SUCCESS [  3.126 s]
-[INFO] cloud-config ....................................... SUCCESS [  1.595 s]
-[INFO] api-gateway ........................................ SUCCESS [  1.697 s]
-[INFO] proxy-client ....................................... SUCCESS [  3.632 s]
-[INFO] user-service ....................................... SUCCESS [  2.546 s]
-[INFO] product-service .................................... SUCCESS [  2.214 s]
-[INFO] favourite-service .................................. SUCCESS [  2.072 s]
-[INFO] order-service ...................................... SUCCESS [  2.241 s]
-[INFO] shipping-service ................................... SUCCESS [  2.197 s]
-[INFO] payment-service .................................... SUCCESS [  2.006 s]
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  24.156 s
-[INFO] Finished at: 2021-12-29T19:52:57+01:00
-[INFO] ------------------------------------------------------------------------
-```
+Output: Reporte HTML descargable como artifact
+Job 3: Validate Helm Charts
+yaml- name: Helm lint
+  run: helm lint helm/ecommerce/charts/${{ matrix.service }} -f values-ci.yaml
 
-### Running Them All
-Now it's the time to run all of our Microservices, and it's straightforward just run the following `docker-compose` commands:
+- name: Helm template
+  run: helm template ${{ matrix.service }} helm/ecommerce/charts/${{ matrix.service }} \
+    -f values-ci.yaml > rendered.yaml
+Job 4: Deploy & Test
+Ambiente: Cluster Kind local
+Flujo:
 
-```bash
-selim@:~/ecommerce-microservice-backend-app$ docker-compose -f compose.yml up
-```
+✅ Crear cluster Kind
+✅ Detectar cambios por servicio
+✅ Desplegar con tags inteligentes:
 
-All the **services**, **databases**, and **messaging service** will run in parallel in detach mode (option `-d`), and command output will print to the console the following:
+Si cambió → tag nuevo (feature-X)
+Si no → tag estable (feature-monitoring)
 
-```bash
-Creating network "ecommerce-microservice-backend-app_default" with the default driver
-Creating ecommerce-microservice-backend-app_api-gateway-container_1       ... done
-Creating ecommerce-microservice-backend-app_favourite-service-container_1 ... done
-Creating ecommerce-microservice-backend-app_service-discovery-container_1 ... done
-Creating ecommerce-microservice-backend-app_shipping-service-container_1  ... done
-Creating ecommerce-microservice-backend-app_order-service-container_1     ... done
-Creating ecommerce-microservice-backend-app_user-service-container_1      ... done
-Creating ecommerce-microservice-backend-app_payment-service-container_1   ... done
-Creating ecommerce-microservice-backend-app_product-service-container_1   ... done
-Creating ecommerce-microservice-backend-app_proxy-client-container_1      ... done
-Creating ecommerce-microservice-backend-app_zipkin-container_1            ... done
-Creating ecommerce-microservice-backend-app_cloud-config-container_1      ... done
-```
-### Access proxy-client APIs
-You can manually test `proxy-client` APIs throughout its **Swagger** interface at the following
- URL [https://localhost:8900/swagger-ui.html](https://localhost:8900/swagger-ui.html).
-### Access Service Discovery Server (Eureka)
-If you would like to access the Eureka service discovery point to this URL [http://localhosts:8761/eureka](https://localhost:8761/eureka) to see all the services registered inside it. 
 
-### Access user-service APIs
- URL [https://localhost:8700/swagger-ui.html](https://localhost:8700/swagger-ui.html).
+✅ Espera ordenada (Eureka → Config → Servicios)
+✅ Verificar deployments
+✅ Debug logs si falla
 
-<!--
-Note that it is accessed through API Gateway and is secured. Therefore the browser will ask you for `username:mt` and `password:p,` write them to the dialog, and you will access it. This type of security is a **basic form security**.
--->
-The **API Gateway** and **Store Service** both act as a *resource server*. <!--To know more about calling Store API in a secure way you can check the `test-em-all.sh` script on how I have changed the calling of the services using **OAuth2** security.-->
+Ejemplo de tag inteligente:
+yaml# Si user-service cambió
+--set user-service.image.tag=${{ needs.set-env.outputs.IMAGE_TAG }}
 
-#### Check all **Spring Boot Actuator** exposed metrics http://localhost:8080/app/actuator/metrics:
+# Si no cambió
+--set user-service.image.tag=feature-monitoring
 
-```bash
-{
-    "names": [
-        "http.server.requests",
-        "jvm.buffer.count",
-        "jvm.buffer.memory.used",
-        "jvm.buffer.total.capacity",
-        "jvm.classes.loaded",
-        "jvm.classes.unloaded",
-        "jvm.gc.live.data.size",
-        "jvm.gc.max.data.size",
-        "jvm.gc.memory.allocated",
-        "jvm.gc.memory.promoted",
-        "jvm.gc.pause",
-        "jvm.memory.committed",
-        "jvm.memory.max",
-        "jvm.memory.used",
-        "jvm.threads.daemon",
-        "jvm.threads.live",
-        "jvm.threads.peak",
-        "jvm.threads.states",
-        "logback.events",
-        "process.cpu.usage",
-        "process.files.max",
-        "process.files.open",
-        "process.start.time",
-        "process.uptime",
-        "resilience4j.circuitbreaker.buffered.calls",
-        "resilience4j.circuitbreaker.calls",
-        "resilience4j.circuitbreaker.failure.rate",
-        "resilience4j.circuitbreaker.not.permitted.calls",
-        "resilience4j.circuitbreaker.slow.call.rate",
-        "resilience4j.circuitbreaker.slow.calls",
-        "resilience4j.circuitbreaker.state",
-        "system.cpu.count",
-        "system.cpu.usage",
-        "system.load.average.1m",
-        "tomcat.sessions.active.current",
-        "tomcat.sessions.active.max",
-        "tomcat.sessions.alive.max",
-        "tomcat.sessions.created",
-        "tomcat.sessions.expired",
-        "tomcat.sessions.rejected",
-        "zipkin.reporter.messages",
-        "zipkin.reporter.messages.dropped",
-        "zipkin.reporter.messages.total",
-        "zipkin.reporter.queue.bytes",
-        "zipkin.reporter.queue.spans",
-        "zipkin.reporter.spans",
-        "zipkin.reporter.spans.dropped",
-        "zipkin.reporter.spans.total"
-    ]
-}
-```
+🚀 Estrategias de Despliegue
+Blue-Green Deployment
+Servicios: cloud-config, service-discovery, shipping-service, user-service
+Ventajas:
 
-#### Prometheus exposed metrics at http://localhost:8080/app/actuator/prometheus
+✅ Cambio instantáneo
+✅ Rollback inmediato
+✅ Zero downtime
 
-```bash
-# HELP resilience4j_circuitbreaker_not_permitted_calls_total Total number of not permitted calls
-# TYPE resilience4j_circuitbreaker_not_permitted_calls_total counter
-resilience4j_circuitbreaker_not_permitted_calls_total{kind="not_permitted",name="proxyService",} 0.0
-# HELP jvm_gc_live_data_size_bytes Size of long-lived heap memory pool after reclamation
-# TYPE jvm_gc_live_data_size_bytes gauge
-jvm_gc_live_data_size_bytes 3721880.0
-# HELP jvm_gc_pause_seconds Time spent in GC pause
-# TYPE jvm_gc_pause_seconds summary
-jvm_gc_pause_seconds_count{action="end of minor GC",cause="Metadata GC Threshold",} 1.0
-jvm_gc_pause_seconds_sum{action="end of minor GC",cause="Metadata GC Threshold",} 0.071
-jvm_gc_pause_seconds_count{action="end of minor GC",cause="G1 Evacuation Pause",} 6.0
-jvm_gc_pause_seconds_sum{action="end of minor GC",cause="G1 Evacuation Pause",} 0.551
-# HELP jvm_gc_pause_seconds_max Time spent in GC pause
-# TYPE jvm_gc_pause_seconds_max gauge
-jvm_gc_pause_seconds_max{action="end of minor GC",cause="Metadata GC Threshold",} 0.071
-jvm_gc_pause_seconds_max{action="end of minor GC",cause="G1 Evacuation Pause",} 0.136
-# HELP system_cpu_usage The "recent cpu usage" for the whole system
-# TYPE system_cpu_usage gauge
-system_cpu_usage 0.4069206655413552
-# HELP jvm_buffer_total_capacity_bytes An estimate of the total capacity of the buffers in this pool
-# TYPE jvm_buffer_total_capacity_bytes gauge
-jvm_buffer_total_capacity_bytes{id="mapped",} 0.0
-jvm_buffer_total_capacity_bytes{id="direct",} 24576.0
-# HELP zipkin_reporter_spans_dropped_total Spans dropped (failed to report)
-# TYPE zipkin_reporter_spans_dropped_total counter
-zipkin_reporter_spans_dropped_total 4.0
-# HELP zipkin_reporter_spans_bytes_total Total bytes of encoded spans reported
-# TYPE zipkin_reporter_spans_bytes_total counter
-zipkin_reporter_spans_bytes_total 1681.0
-# HELP tomcat_sessions_active_current_sessions  
-# TYPE tomcat_sessions_active_current_sessions gauge
-tomcat_sessions_active_current_sessions 0.0
-# HELP jvm_classes_loaded_classes The number of classes that are currently loaded in the Java virtual machine
-# TYPE jvm_classes_loaded_classes gauge
-jvm_classes_loaded_classes 13714.0
-# HELP process_files_open_files The open file descriptor count
-# TYPE process_files_open_files gauge
-process_files_open_files 17.0
-# HELP resilience4j_circuitbreaker_slow_call_rate The slow call of the circuit breaker
-# TYPE resilience4j_circuitbreaker_slow_call_rate gauge
-resilience4j_circuitbreaker_slow_call_rate{name="proxyService",} -1.0
-# HELP system_cpu_count The number of processors available to the Java virtual machine
-# TYPE system_cpu_count gauge
-system_cpu_count 8.0
-# HELP jvm_threads_daemon_threads The current number of live daemon threads
-# TYPE jvm_threads_daemon_threads gauge
-jvm_threads_daemon_threads 21.0
-# HELP zipkin_reporter_messages_total Messages reported (or attempted to be reported)
-# TYPE zipkin_reporter_messages_total counter
-zipkin_reporter_messages_total 2.0
-# HELP zipkin_reporter_messages_dropped_total  
-# TYPE zipkin_reporter_messages_dropped_total counter
-zipkin_reporter_messages_dropped_total{cause="ResourceAccessException",} 2.0
-# HELP zipkin_reporter_messages_bytes_total Total bytes of messages reported
-# TYPE zipkin_reporter_messages_bytes_total counter
-zipkin_reporter_messages_bytes_total 1368.0
-# HELP http_server_requests_seconds  
-# TYPE http_server_requests_seconds summary
-http_server_requests_seconds_count{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/metrics",} 1.0
-http_server_requests_seconds_sum{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/metrics",} 1.339804427
-http_server_requests_seconds_count{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",} 1.0
-http_server_requests_seconds_sum{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",} 0.053689381
-# HELP http_server_requests_seconds_max  
-# TYPE http_server_requests_seconds_max gauge
-http_server_requests_seconds_max{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/metrics",} 1.339804427
-http_server_requests_seconds_max{exception="None",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",} 0.053689381
-# HELP resilience4j_circuitbreaker_slow_calls The number of slow successful which were slower than a certain threshold
-# TYPE resilience4j_circuitbreaker_slow_calls gauge
-resilience4j_circuitbreaker_slow_calls{kind="successful",name="proxyService",} 0.0
-resilience4j_circuitbreaker_slow_calls{kind="failed",name="proxyService",} 0.0
-# HELP jvm_classes_unloaded_classes_total The total number of classes unloaded since the Java virtual machine has started execution
-# TYPE jvm_classes_unloaded_classes_total counter
-jvm_classes_unloaded_classes_total 0.0
-# HELP process_files_max_files The maximum file descriptor count
-# TYPE process_files_max_files gauge
-process_files_max_files 1048576.0
-# HELP resilience4j_circuitbreaker_calls_seconds Total number of successful calls
-# TYPE resilience4j_circuitbreaker_calls_seconds summary
-resilience4j_circuitbreaker_calls_seconds_count{kind="successful",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_sum{kind="successful",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_count{kind="failed",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_sum{kind="failed",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_count{kind="ignored",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_sum{kind="ignored",name="proxyService",} 0.0
-# HELP resilience4j_circuitbreaker_calls_seconds_max Total number of successful calls
-# TYPE resilience4j_circuitbreaker_calls_seconds_max gauge
-resilience4j_circuitbreaker_calls_seconds_max{kind="successful",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_max{kind="failed",name="proxyService",} 0.0
-resilience4j_circuitbreaker_calls_seconds_max{kind="ignored",name="proxyService",} 0.0
-# HELP zipkin_reporter_spans_total Spans reported
-# TYPE zipkin_reporter_spans_total counter
-zipkin_reporter_spans_total 5.0
-# HELP zipkin_reporter_queue_bytes Total size of all encoded spans queued for reporting
-# TYPE zipkin_reporter_queue_bytes gauge
-zipkin_reporter_queue_bytes 0.0
-# HELP tomcat_sessions_expired_sessions_total  
-# TYPE tomcat_sessions_expired_sessions_total counter
-tomcat_sessions_expired_sessions_total 0.0
-# HELP tomcat_sessions_alive_max_seconds  
-# TYPE tomcat_sessions_alive_max_seconds gauge
-tomcat_sessions_alive_max_seconds 0.0
-# HELP process_uptime_seconds The uptime of the Java virtual machine
-# TYPE process_uptime_seconds gauge
-process_uptime_seconds 224.402
-# HELP tomcat_sessions_active_max_sessions  
-# TYPE tomcat_sessions_active_max_sessions gauge
-tomcat_sessions_active_max_sessions 0.0
-# HELP process_cpu_usage The "recent cpu usage" for the Java Virtual Machine process
-# TYPE process_cpu_usage gauge
-process_cpu_usage 5.625879043600563E-4
-# HELP jvm_gc_memory_promoted_bytes_total Count of positive increases in the size of the old generation memory pool before GC to after GC
-# TYPE jvm_gc_memory_promoted_bytes_total counter
-jvm_gc_memory_promoted_bytes_total 1.7851088E7
-# HELP logback_events_total Number of error level events that made it to the logs
-# TYPE logback_events_total counter
-logback_events_total{level="warn",} 5.0
-logback_events_total{level="debug",} 79.0
-logback_events_total{level="error",} 0.0
-logback_events_total{level="trace",} 0.0
-logback_events_total{level="info",} 60.0
-# HELP tomcat_sessions_created_sessions_total  
-# TYPE tomcat_sessions_created_sessions_total counter
-tomcat_sessions_created_sessions_total 0.0
-# HELP jvm_threads_live_threads The current number of live threads including both daemon and non-daemon threads
-# TYPE jvm_threads_live_threads gauge
-jvm_threads_live_threads 25.0
-# HELP jvm_threads_states_threads The current number of threads having NEW state
-# TYPE jvm_threads_states_threads gauge
-jvm_threads_states_threads{state="runnable",} 6.0
-jvm_threads_states_threads{state="blocked",} 0.0
-jvm_threads_states_threads{state="waiting",} 8.0
-jvm_threads_states_threads{state="timed-waiting",} 11.0
-jvm_threads_states_threads{state="new",} 0.0
-jvm_threads_states_threads{state="terminated",} 0.0
-# HELP tomcat_sessions_rejected_sessions_total  
-# TYPE tomcat_sessions_rejected_sessions_total counter
-tomcat_sessions_rejected_sessions_total 0.0
-# HELP process_start_time_seconds Start time of the process since unix epoch.
-# TYPE process_start_time_seconds gauge
-process_start_time_seconds 1.64088634006E9
-# HELP resilience4j_circuitbreaker_buffered_calls The number of buffered failed calls stored in the ring buffer
-# TYPE resilience4j_circuitbreaker_buffered_calls gauge
-resilience4j_circuitbreaker_buffered_calls{kind="successful",name="proxyService",} 0.0
-resilience4j_circuitbreaker_buffered_calls{kind="failed",name="proxyService",} 0.0
-# HELP jvm_memory_max_bytes The maximum amount of memory in bytes that can be used for memory management
-# TYPE jvm_memory_max_bytes gauge
-jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'",} 1.22908672E8
-jvm_memory_max_bytes{area="heap",id="G1 Survivor Space",} -1.0
-jvm_memory_max_bytes{area="heap",id="G1 Old Gen",} 5.182062592E9
-jvm_memory_max_bytes{area="nonheap",id="Metaspace",} -1.0
-jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-nmethods'",} 5836800.0
-jvm_memory_max_bytes{area="heap",id="G1 Eden Space",} -1.0
-jvm_memory_max_bytes{area="nonheap",id="Compressed Class Space",} 1.073741824E9
-jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'",} 1.22912768E8
-# HELP jvm_memory_committed_bytes The amount of memory in bytes that is committed for the Java virtual machine to use
-# TYPE jvm_memory_committed_bytes gauge
-jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'",} 1.6646144E7
-jvm_memory_committed_bytes{area="heap",id="G1 Survivor Space",} 2.4117248E7
-jvm_memory_committed_bytes{area="heap",id="G1 Old Gen",} 1.7301504E8
-jvm_memory_committed_bytes{area="nonheap",id="Metaspace",} 7.6857344E7
-jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-nmethods'",} 2555904.0
-jvm_memory_committed_bytes{area="heap",id="G1 Eden Space",} 2.71581184E8
-jvm_memory_committed_bytes{area="nonheap",id="Compressed Class Space",} 1.0354688E7
-jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'",} 6619136.0
-# HELP jvm_memory_used_bytes The amount of used memory
-# TYPE jvm_memory_used_bytes gauge
-jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'",} 1.6585088E7
-jvm_memory_used_bytes{area="heap",id="G1 Survivor Space",} 2.4117248E7
-jvm_memory_used_bytes{area="heap",id="G1 Old Gen",} 2.0524392E7
-jvm_memory_used_bytes{area="nonheap",id="Metaspace",} 7.4384552E7
-jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-nmethods'",} 1261696.0
-jvm_memory_used_bytes{area="heap",id="G1 Eden Space",} 2.5165824E7
-jvm_memory_used_bytes{area="nonheap",id="Compressed Class Space",} 9365664.0
-jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'",} 6604416.0
-# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
-# TYPE system_load_average_1m gauge
-system_load_average_1m 8.68
-# HELP resilience4j_circuitbreaker_state The states of the circuit breaker
-# TYPE resilience4j_circuitbreaker_state gauge
-resilience4j_circuitbreaker_state{name="proxyService",state="forced_open",} 0.0
-resilience4j_circuitbreaker_state{name="proxyService",state="closed",} 1.0
-resilience4j_circuitbreaker_state{name="proxyService",state="disabled",} 0.0
-resilience4j_circuitbreaker_state{name="proxyService",state="open",} 0.0
-resilience4j_circuitbreaker_state{name="proxyService",state="half_open",} 0.0
-resilience4j_circuitbreaker_state{name="proxyService",state="metrics_only",} 0.0
-# HELP jvm_buffer_memory_used_bytes An estimate of the memory that the Java virtual machine is using for this buffer pool
-# TYPE jvm_buffer_memory_used_bytes gauge
-jvm_buffer_memory_used_bytes{id="mapped",} 0.0
-jvm_buffer_memory_used_bytes{id="direct",} 24576.0
-# HELP resilience4j_circuitbreaker_failure_rate The failure rate of the circuit breaker
-# TYPE resilience4j_circuitbreaker_failure_rate gauge
-resilience4j_circuitbreaker_failure_rate{name="proxyService",} -1.0
-# HELP zipkin_reporter_queue_spans Spans queued for reporting
-# TYPE zipkin_reporter_queue_spans gauge
-zipkin_reporter_queue_spans 0.0
-# HELP jvm_gc_memory_allocated_bytes_total Incremented for an increase in the size of the (young) heap memory pool after one GC to before the next
-# TYPE jvm_gc_memory_allocated_bytes_total counter
-jvm_gc_memory_allocated_bytes_total 1.402994688E9
-# HELP jvm_buffer_count_buffers An estimate of the number of buffers in the pool
-# TYPE jvm_buffer_count_buffers gauge
-jvm_buffer_count_buffers{id="mapped",} 0.0
-jvm_buffer_count_buffers{id="direct",} 3.0
-# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
-# TYPE jvm_threads_peak_threads gauge
-jvm_threads_peak_threads 25.0
-# HELP jvm_gc_max_data_size_bytes Max size of long-lived heap memory pool
-# TYPE jvm_gc_max_data_size_bytes gauge
-jvm_gc_max_data_size_bytes 5.182062592E9
-```
+Configuración:
+yaml# values.yaml
+deploymentStrategy:
+  type: blue-green
+  active: blue  # o green
 
-#### Check All Services Health
-From ecommerce front Service proxy we can check all the core services health when you have all the
- microservices up and running using Docker Compose,
-```bash
-selim@:~/ecommerce-microservice-backend-app$ curl -k https://localhost:8443/actuator/health -s | jq .components."\"Core Microservices\""
-```
-This will result in the following response:
-```json
-{
-    "status": "UP",
-    "components": {
-        "circuitBreakers": {
-            "status": "UP",
-            "details": {
-                "proxyService": {
-                    "status": "UP",
-                    "details": {
-                        "failureRate": "-1.0%",
-                        "failureRateThreshold": "50.0%",
-                        "slowCallRate": "-1.0%",
-                        "slowCallRateThreshold": "100.0%",
-                        "bufferedCalls": 0,
-                        "slowCalls": 0,
-                        "slowFailedCalls": 0,
-                        "failedCalls": 0,
-                        "notPermittedCalls": 0,
-                        "state": "CLOSED"
-                    }
-                }
-            }
-        },
-        "clientConfigServer": {
-            "status": "UNKNOWN",
-            "details": {
-                "error": "no property sources located"
-            }
-        },
-        "discoveryComposite": {
-            "status": "UP",
-            "components": {
-                "discoveryClient": {
-                    "status": "UP",
-                    "details": {
-                        "services": [
-                            "proxy-client",
-                            "api-gateway",
-                            "cloud-config",
-                            "product-service",
-                            "user-service",
-                            "favourite-service",
-                            "order-service",
-                            "payment-service",
-                            "shipping-service"
-                        ]
-                    }
-                },
-                "eureka": {
-                    "description": "Remote status from Eureka server",
-                    "status": "UP",
-                    "details": {
-                        "applications": {
-                            "FAVOURITE-SERVICE": 1,
-                            "PROXY-CLIENT": 1,
-                            "API-GATEWAY": 1,
-                            "PAYMENT-SERVICE": 1,
-                            "ORDER-SERVICE": 1,
-                            "CLOUD-CONFIG": 1,
-                            "PRODUCT-SERVICE": 1,
-                            "SHIPPING-SERVICE": 1,
-                            "USER-SERVICE": 1
-                        }
-                    }
-                }
-            }
-        },
-        "diskSpace": {
-            "status": "UP",
-            "details": {
-                "total": 981889826816,
-                "free": 325116776448,
-                "threshold": 10485760,
-                "exists": true
-            }
-        },
-        "ping": {
-            "status": "UP"
-        },
-        "refreshScope": {
-            "status": "UP"
-        }
-    }
-}
-```
-### Testing Them All
-Now it's time to test all the application functionality as one part. To do so just run
- the following automation test script:
+blue:
+  image:
+    repository: barcino/cloud-config
+    tag: v1.0.0
 
-```bash
-selim@:~/ecommerce-microservice-backend-app$ ./test-em-all.sh start
-```
-> You can use `stop` switch with `start`, that will 
->1. start docker, 
->2. run the tests, 
->3. stop the docker instances.
+green:
+  image:
+    repository: barcino/cloud-config
+    tag: v1.1.0
+Cambio de versión:
+bash# Cambiar a green
+helm upgrade my-ecommerce ./helm/ecommerce \
+  -f values-prod.yaml \
+  --set cloud-config.deploymentStrategy.active=green
+Comportamiento:
 
-The result will look like this:
+Solo el deployment activo tiene réplicas > 0
+El Service apunta al deployment activo vía label color
 
-```bash
-Starting 'ecommerce-microservice-backend-app' for [Blackbox] testing...
+Canary Deployment
+Servicios: api-gateway, user-service, product-service, order-service, payment-service, favourite-service, proxy-client
+Ventajas:
 
-Start Tests: Tue, May 31, 2020 2:09:36 AM
-HOST=localhost
-PORT=8080
-Restarting the test environment...
-$ docker-compose -p -f compose.yml down --remove-orphans
-$ docker-compose -p -f compose.yml up -d
-Wait for: curl -k https://localhost:8080/actuator/health... , retry #1 , retry #2, {"status":"UP"} DONE, continues...
-Test OK (HTTP Code: 200)
-...
-Test OK (actual value: 1)
-Test OK (actual value: 3)
-Test OK (actual value: 3)
-Test OK (HTTP Code: 404, {"httpStatus":"NOT_FOUND","message":"No product found for productId: 13","path":"/app/api/products/20","time":"2020-04-12@12:34:25.144+0000"})
-...
-Test OK (actual value: 3)
-Test OK (actual value: 0)
-Test OK (HTTP Code: 422, {"httpStatus":"UNPROCESSABLE_ENTITY","message":"Invalid productId: -1","path":"/app/api/products/-1","time":"2020-04-12@12:34:26.243+0000"})
-Test OK (actual value: "Invalid productId: -1")
-Test OK (HTTP Code: 400, {"timestamp":"2020-04-12T12:34:26.471+00:00","path":"/app/api/products/invalidProductId","status":400,"error":"Bad Request","message":"Type mismatch.","requestId":"044dcdf2-13"})
-Test OK (actual value: "Type mismatch.")
-Test OK (HTTP Code: 401, )
-Test OK (HTTP Code: 200)
-Test OK (HTTP Code: 403, )
-Start Circuit Breaker tests!
-Test OK (actual value: CLOSED)
-Test OK (HTTP Code: 500, {"timestamp":"2020-05-26T00:09:48.784+00:00","path":"/app/api/products/2","status":500,"error":"Internal Server Error","message":"Did not observe any item or terminal signal within 2000ms in 'onErrorResume' (and no fallback has been configured)","requestId":"4aa9f5e8-119"})
-...
-Test OK (actual value: Did not observe any item or terminal signal within 2000ms)
-Test OK (HTTP Code: 200)
-Test OK (actual value: Fallback product2)
-Test OK (HTTP Code: 200)
-Test OK (actual value: Fallback product2)
-Test OK (HTTP Code: 404, {"httpStatus":"NOT_FOUND","message":"Product Id: 14 not found in fallback cache!","path":"/app/api/products/14","timestamp":"2020-05-26@00:09:53.998+0000"})
-...
-Test OK (actual value: product name C)
-Test OK (actual value: CLOSED)
-Test OK (actual value: CLOSED_TO_OPEN)
-Test OK (actual value: OPEN_TO_HALF_OPEN)
-Test OK (actual value: HALF_OPEN_TO_CLOSED)
-End, all tests OK: Tue, May 31, 2020 2:10:09 AM
-```
-### Tracking the services with Zipkin
-Now, you can now track Microservices interactions throughout Zipkin UI from the following link:
-[http://localhost:9411/zipkin/](http://localhost:9411/zipkin/)
-![Zipkin UI](zipkin-dash.png)
+✅ Prueba gradual con tráfico real
+✅ Menor riesgo
+✅ Feedback rápido
 
-### Closing The Story
+Configuración:
+yamlstable:
+  image:
+    repository: barcino/api-gateway
+    tag: v1.0.0
+  replicaCount: 3
 
-Finally, to close the story, we need to shut down Microservices manually service by service, hahaha just kidding, run the following command to shut them all:
-
-```bash
-selim@:~/ecommerce-microservice-backend-app$ docker-compose -f compose.yml down --remove-orphans
-```
- And you should see output like the following:
-
-```bash
-Removing ecommerce-microservice-backend-app_payment-service-container_1   ... done
-Removing ecommerce-microservice-backend-app_zipkin-container_1            ... done
-Removing ecommerce-microservice-backend-app_service-discovery-container_1 ... done
-Removing ecommerce-microservice-backend-app_product-service-container_1   ... done
-Removing ecommerce-microservice-backend-app_cloud-config-container_1      ... done
-Removing ecommerce-microservice-backend-app_proxy-client-container_1      ... done
-Removing ecommerce-microservice-backend-app_order-service-container_1     ... done
-Removing ecommerce-microservice-backend-app_user-service-container_1      ... done
-Removing ecommerce-microservice-backend-app_shipping-service-container_1  ... done
-Removing ecommerce-microservice-backend-app_api-gateway-container_1       ... done
-Removing ecommerce-microservice-backend-app_favourite-service-container_1 ... done
-Removing network ecommerce-microservice-backend-app_default
-```
-### The End
-In the end, I hope you enjoyed the application and find it useful, as I did when I was developing it. 
-If you would like to enhance, please: 
-- **Open PRs**, 
-- Give **feedback**, 
-- Add **new suggestions**, and
-- Finally, give it a 🌟.
-
-*Happy Coding ...* 🙂
+canary
