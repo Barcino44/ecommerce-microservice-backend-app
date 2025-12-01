@@ -1,12 +1,12 @@
 blue:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
 
 green:
   image:
     repository: "barcino/cloud-config"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
 serviceAccount:
   create: true
   automount: false

@@ -36,13 +36,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/order-service"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/order-service"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
   replicaCount: 0 
 
 resources:
