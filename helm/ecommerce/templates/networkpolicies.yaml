@@ -1,0 +1,1195 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloud-config-internet-access
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: cloud-config
+  policyTypes:
+    - Egress
+  egress:
+    # DNS
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # HTTPS Internet
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# ============================================================================
+# MICROSERVICIOS - Acceso a Internet (Maven Central, APIs externas)
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: microservices-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - api-gateway
+          - user-service
+          - product-service
+          - order-service
+          - payment-service
+          - favourite-service
+          - shipping-service
+          - proxy-client
+  policyTypes:
+    - Egress  
+  egress:
+    # ----------------------------------------
+    # DNS (Siempre necesario)
+    # ----------------------------------------
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # ----------------------------------------
+    # INTERNET: HTTP/HTTPS completo
+    # ----------------------------------------
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+# ============================================================================
+# API GATEWAY - Ingress desde el exterior
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Tráfico desde el Ingress Controller (nginx)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: controller
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+  # DNS
+  - to:
+      - namespaceSelector: {}
+    ports:
+      - protocol: UDP
+        port: 53
+
+  # Permitir tráfico a microservicios por label app
+  - to:
+      - podSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - user-service
+                - payment-service
+                - favourite-service
+                - shipping-service
+                - proxy-client
+                - api-gateway
+                - service-discovery
+                - cloud-config
+                - jaeger
+                - product-service
+                - order-service
+                - user-service
+    ports:
+      - protocol: TCP
+        port: 1
+        endPort: 65535
+---
+# ============================================================================
+# USER SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8700
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: favourite-service
+      ports:
+        - protocol: TCP
+          port: 8700
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8700
+    
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+  
+---
+# ============================================================================
+# PRODUCT SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: product-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+
+    - from:
+      - podSelector:
+          matchLabels:
+            app: proxy-client
+      ports:
+        - protocol: TCP
+          port: 8500
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: favourite-service
+      ports:
+        - protocol: TCP
+          port: 8500
+    - from:
+        - podSelector:
+            matchLabels:
+              app: shipping-service
+      ports:
+        - protocol: TCP
+          port: 8500
+    - from:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 8500
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+    
+    
+---
+# ============================================================================
+# ORDER SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: order-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app: shipping-service
+      ports:
+        - protocol: TCP
+          port: 8300
+    - from:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 8300
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+
+---
+# ============================================================================
+# PAYMENT SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde Order Service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8400
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: payment-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8300
+
+---
+# ============================================================================
+# FAVOURITE SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: favourite-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: favourite-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8800
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: favourite-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Product Service
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8500
+    - to:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 8700
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+
+---
+# ============================================================================
+# SHIPPING SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipping-service-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: shipping-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde Order Service
+    - from:
+        - podSelector:
+              matchLabels:
+                app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8600
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+    # A base de datos MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: shipping-service-db
+      ports:
+        - protocol: TCP
+          port: 3306
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+    - to:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8300
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8500
+---
+# ============================================================================
+# PROXY CLIENT
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: proxy-client-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: proxy-client
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: 
+    # Desde API Gateway
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8900
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # A Service Discovery
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # A Cloud Config
+    - to:
+        - podSelector:
+            matchLabels:
+              app: cloud-config
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # A Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+    - to:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8500
+
+---
+# ============================================================================
+# SERVICE DISCOVERY (EUREKA)
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: service-discovery-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: service-discovery
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde todos los microservicios
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: favourite-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: shipping-service
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector:
+            matchLabels:
+              app: proxy-client
+      ports:
+        - protocol: TCP
+          port: 8761
+    - from:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    - from:
+        - podSelector: {}   # todos
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # Desde Prometheus (monitoring)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8761
+
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: UDP
+          port: 53
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+    - to:
+        - podSelector: {}   # todos
+      ports:
+        - protocol: TCP
+          port: 8761
+---
+# ============================================================================
+# CLOUD CONFIG
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloud-config-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: cloud-config
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Permitir que cualquier microservicio del namespace se conecte
+    - from:
+        - podSelector: {}   # todos
+      ports:
+        - protocol: TCP
+          port: 9296
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Permitir enviar respuestas a todos los microservicios
+    - to:
+        - podSelector: {}   # responde a todos
+      ports:
+        - protocol: TCP
+          port: 9296
+
+    # hacia Eureka (para registrar el health)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: service-discovery
+      ports:
+        - protocol: TCP
+          port: 8761
+
+    # hacia Jaeger
+    - to:
+        - podSelector:
+            matchLabels:
+              app: jaeger
+      ports:
+        - protocol: TCP
+          port: 9411
+
+---
+# ============================================================================
+# JAEGER (TRACING)
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jaeger-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: jaeger
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Desde todos los microservicios (traces)
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9411
+        - protocol: TCP
+          port: 14250
+        - protocol: TCP
+          port: 14268
+
+    # Desde Prometheus (métricas)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 14269
+
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - USER SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: user-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - PRODUCT SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: product-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: product-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: product-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - ORDER SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: order-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: order-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - PAYMENT SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: payment-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - FAVOURITE SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: favourite-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: favourite-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: favourite-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ============================================================================
+# DATABASE MYSQL - SHIPPING SERVICE
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shipping-service-db-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: shipping-service-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Solo desde el microservicio correspondiente
+    - from:
+        - podSelector:
+            matchLabels:
+              app: shipping-service
+      ports:
+        - protocol: TCP
+          port: 3306
+
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---

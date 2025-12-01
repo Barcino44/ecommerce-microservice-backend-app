@@ -1,11 +1,7 @@
 
 server:
-<<<<<<< HEAD
   address: 0.0.0.0
   port: 8800
-=======
-  port: 8800 
->>>>>>> fb18d16f92a57d7a8c9445be98480cc3d0d00fce
 
 management:
   endpoints:

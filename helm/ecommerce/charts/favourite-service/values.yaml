@@ -37,7 +37,7 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/favourite-service"
-    tag: "feature-monitoring"
+    tag: "feature-hpa"
   replicaCount: 1
   
 canary:
