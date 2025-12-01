@@ -217,7 +217,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8700
-    
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -309,6 +315,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8500
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -386,6 +399,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8300
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -455,7 +475,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8400
-
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -533,7 +559,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8800
-
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -618,6 +650,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8600
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -699,6 +738,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8900
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
   egress:
     # DNS
     - to:
@@ -840,13 +886,10 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: monitoring
-        - podSelector:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
             matchLabels:
               app: prometheus
-      ports:
-        - protocol: TCP
-          port: 8761
 
   egress:
     - to:
@@ -899,6 +942,13 @@ spec:
       ports:
         - protocol: TCP
           port: 9296
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
 
   egress:
     # DNS
@@ -969,6 +1019,13 @@ spec:
       ports:
         - protocol: TCP
           port: 14269
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: prometheus
 
   egress:
     - to:

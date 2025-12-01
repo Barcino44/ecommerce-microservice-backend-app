@@ -36,13 +36,13 @@ containerSecurityContext:
 stable:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
   replicaCount: 1
   
 canary:
   image:
     repository: "barcino/shipping-service"
-    tag: "feature-monitoring"
+    tag: "feature-netpol"
   replicaCount: 0  
 
 prometheus:

@@ -81,7 +81,8 @@ spec:
         - namespaceSelector: {}   # Todos los namespaces
       ports:
         - protocol: TCP
-          port: 0-65535          # IMPORTANTE: permite scrape dinámico
+          port: 1
+          endPort: 65535        # IMPORTANTE: permite scrape dinámico
 
     # Kube-apiserver para scraping /metrics y cadvisor proxy
     - to:
@@ -90,6 +91,36 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.49.2/32
+      ports:
+        - protocol: TCP
+          port: 8443
+
+    # Permitir scrape a otros namespaces internos
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32   # ClusterIP del kube-apiserver service
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.49.2/32   # API server externo de Minikube
+      ports:
+        - protocol: TCP
+          port: 8443
+---
 
 # ============================================================================
 # MONITORING NAMESPACE - GRAFANA
@@ -133,3 +164,4 @@ spec:
       ports:
         - protocol: TCP
           port: 9090
+---
