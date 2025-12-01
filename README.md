@@ -69,7 +69,7 @@ Diagrama de Arquitectura
 │    (Port 8761)      │                │            │              │           │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
-```
+
 | **Servicio**          | **Ingress**        | **Egress** | **Ports** |
 |-----------------------|--------------------|------------|-----------|
 | **API Gateway**       | Any source         | • User Service<br>• Product Service<br>• Order Service<br>• Payment Service<br>• Shipping Service<br>• Favourite Service<br>• DNS | • 8080 (gateway)<br>• 53 (DNS) |
@@ -81,7 +81,7 @@ Diagrama de Arquitectura
 | **Favourite Service** | • API Gateway      | • Favourite DB<br>• Product Service<br>• User Service<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8800 (service)<br>• 3306 (MySQL)<br>• 8500 (product)<br>• 8700 (user)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
 | **Proxy Client**      | Any source         | • HTTP external<br>• DNS | • 8900 (proxy)<br>• 53 (DNS) |
 
-```
+
 
 
 ✨ Características Principales
@@ -340,7 +340,7 @@ Allow DNS: Resolución de nombres permitida
 Políticas específicas por servicio: Solo tráfico necesario
 
 Tabla de Network Policies
-```
+
 | Política                   | Scope / Servicio       | Ingress Permitido                                                                 | Egress Permitido                                                                 | Descripción                 |
 |---------------------------|-------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------|-----------------------------|
 | default-deny-all          | Namespace completo      | ❌ Deny All                                                                        | ❌ Deny All                                                                       | Bloqueo por defecto         |
@@ -357,7 +357,7 @@ Tabla de Network Policies
 | jaeger-policy             | jaeger                  | ✅ Todos los microservicios<br>✅ Prometheus:14269<br>✅ Internet (80/443)<br>✅ DNS | -                                                                                | Trazabilidad distribuida    |
 | *-db-policy               | Bases de datos MySQL    | -                                                                                 | ✅ Solo su microservicio<br>✅ DNS                                                | Aislamiento de datos        |
 
-```
+
 Ejemplo de Network Policy
 yamlapiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
