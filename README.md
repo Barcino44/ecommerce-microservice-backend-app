@@ -72,14 +72,15 @@ Diagrama de Arquitectura
 
 | **Servicio**          | **Ingress**        | **Egress** | **Ports** |
 |-----------------------|--------------------|------------|-----------|
-| **API Gateway**       | Any source         | • User Service<br>• Product Service<br>• Order Service<br>• Payment Service<br>• Shipping Service<br>• Favourite Service<br>• DNS | • 8080 (gateway)<br>• 53 (DNS) |
-| **User Service**      | • API Gateway      | • User DB<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8700 (service)<br>• 3306 (MySQL)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Product Service**   | • API Gateway      | • Product DB<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8500 (service)<br>• 3306 (MySQL)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Order Service**     | • API Gateway      | • Order DB<br>• Payment Service<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8300 (service)<br>• 3306 (MySQL)<br>• 8400 (payment)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Payment Service**   | • API Gateway      | • Payment DB<br>• Order Service<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8400 (service)<br>• 3306 (MySQL)<br>• 8300 (order)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Shipping Service**  | • API Gateway      | • Shipping DB<br>• Order Service<br>• Product Service<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8600 (service)<br>• 3306 (MySQL)<br>• 8300 (order)<br>• 8500 (product)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Favourite Service** | • API Gateway      | • Favourite DB<br>• Product Service<br>• User Service<br>• Eureka<br>• Cloud Config<br>• Jaeger<br>• DNS | • 8800 (service)<br>• 3306 (MySQL)<br>• 8500 (product)<br>• 8700 (user)<br>• 8761 (eureka)<br>• 9296 (config)<br>• 9411 (jaeger)<br>• 53 (DNS) |
-| **Proxy Client**      | Any source         | • HTTP external<br>• DNS | • 8900 (proxy)<br>• 53 (DNS) |
+| **API Gateway**       | Any source         | User Service, Product Service, Order Service, Payment Service, Shipping Service, Favourite Service, DNS | 8080 (gateway), 53 (DNS) |
+| **User Service**      | API Gateway        | User DB, Eureka, Cloud Config, Jaeger, DNS | 8700 (service), 3306 (MySQL), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Product Service**   | API Gateway        | Product DB, Eureka, Cloud Config, Jaeger, DNS | 8500 (service), 3306 (MySQL), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Order Service**     | API Gateway        | Order DB, Payment Service, Eureka, Cloud Config, Jaeger, DNS | 8300 (service), 3306 (MySQL), 8400 (payment), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Payment Service**   | API Gateway        | Payment DB, Order Service, Eureka, Cloud Config, Jaeger, DNS | 8400 (service), 3306 (MySQL), 8300 (order), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Shipping Service**  | API Gateway        | Shipping DB, Order Service, Product Service, Eureka, Cloud Config, Jaeger, DNS | 8600 (service), 3306 (MySQL), 8300 (order), 8500 (product), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Favourite Service** | API Gateway        | Favourite DB, Product Service, User Service, Eureka, Cloud Config, Jaeger, DNS | 8800 (service), 3306 (MySQL), 8500 (product), 8700 (user), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
+| **Proxy Client**      | Any source         | HTTP external, DNS | 8900 (proxy), 53 (DNS) |
+
 
 
 
