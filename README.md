@@ -270,6 +270,8 @@ helm/
 ⚙️ Configuración de Servicios
 ConfigMaps
 Los ConfigMaps almacenan configuración no sensible inyectada como variables de entorno:
+
+```yaml
 yamlapiVersion: v1
 kind: ConfigMap
 metadata:
@@ -280,6 +282,7 @@ data:
   SPRING_CONFIG_IMPORT: "optional:configserver:http://my-ecommerce-cloud-config:9296/"
   EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://my-ecommerce-service-discovery:8761/eureka/"
   EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+```
 Secrets (Sealed Secrets)
 Las credenciales de base de datos se gestionan con Sealed Secrets:
 bash# Generar sealed secrets
@@ -288,7 +291,8 @@ bash# Generar sealed secrets
 # Aplicar en el cluster
 kubectl apply -f helm/secrets/sealedsecrets/prod/
 Estructura de un Sealed Secret:
-yamlapiVersion: bitnami.com/v1alpha1
+```yaml
+apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
   name: user-service-db-credentials
@@ -331,6 +335,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
+```
 
 🔐 Network Policies
 Modelo de Seguridad
@@ -360,7 +365,9 @@ Tabla de Network Policies
 
 
 Ejemplo de Network Policy
-yamlapiVersion: networking.k8s.io/v1
+
+```yaml
+apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: user-service-network-policy
@@ -412,11 +419,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8761
-
+```
 📊 Monitoreo y Observabilidad
 Prometheus
 Configuración de Scraping:
-yamlscrape_configs:
+
+```yaml
+scrape_configs:
   # Spring Boot Actuator
   - job_name: "spring-boot-actuator"
     kubernetes_sd_configs:
@@ -444,6 +453,7 @@ yamlscrape_configs:
   - job_name: "eureka"
     static_configs:
       - targets: ['service-discovery:8761']
+```
 Grafana Dashboards
 El proyecto incluye 3 dashboards predefinidos:
 1. Spring Boot Metrics Dashboard
@@ -504,6 +514,8 @@ kubectl get svc -n prod my-ecommerce-service-discovery
 Pod Security Standards
 AmbientePolicyCaracterísticasdevbaseline- Permite contenedores privilegiados limitados- Filesystem parcialmente restringido- Ideal para desarrolloqabaseline- Configuración similar a dev- Mayor auditoríaprodrestricted- Máxima seguridad- runAsNonRoot obligatorio- readOnlyRootFilesystem- Todas las capabilities eliminadas- Seccomp RuntimeDefault
 Security Context (Producción)
+
+```yaml
 yaml# Pod Level
 podSecurityContext:
   runAsNonRoot: true
@@ -521,6 +533,8 @@ containerSecurityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+```
+
 Sealed Secrets Workflow
 mermaidgraph LR
     A[Secret Plaintext] -->|kubeseal| B[Sealed Secret]
@@ -541,7 +555,9 @@ echo -n "mypassword" | kubectl create secret generic my-secret \
 kubectl apply -f sealed-secret.yaml
 Escaneo de Vulnerabilidades
 El pipeline CI/CD incluye escaneo con Trivy:
-yaml- name: Scan Docker image with Trivy
+
+```yaml
+- name: Scan Docker image with Trivy
   uses: aquasecurity/trivy-action@0.11.2
   with:
     image-ref: ${{ env.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.scan-tag.outputs.SCAN_TAG }}
@@ -550,6 +566,7 @@ yaml- name: Scan Docker image with Trivy
     output: 'trivy-${{ matrix.service }}.html'
     vuln-type: 'os,library'
     severity: 'HIGH,CRITICAL'
+```
 
 🔄 CI/CD
 Pipeline GitHub Actions
