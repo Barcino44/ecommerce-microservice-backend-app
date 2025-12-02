@@ -1,5 +1,9 @@
 E-Commerce Microservices Platform - Kubernetes Deployment
 
+## Repositorio Original
+Este proyecto es un fork del repositorio original:  
+[📌 Ver repositorio original]([https://github.com/autor/repo-original)](https://github.com/SelimHorri/ecommerce-microservice-backend-app)
+
 https://helm.sh/
 https://kubernetes.io/
 
@@ -1015,6 +1019,12 @@ kubectl rollout history deployment -n prod my-ecommerce-user-service-stable
 
 ## 👥 Autores
 
+## Repositorio Original
+Este proyecto es un fork del repositorio original:  
+[📌 Ver repositorio original]([https://github.com/autor/repo-original)](https://github.com/SelimHorri/ecommerce-microservice-backend-app)
+
+Este es una adaptación al proyecto original de
+
 - **Juan José Barrera Gracia**
 - **Andrés Mauricio Mesa Franco**
 
@@ -1023,28 +1033,3 @@ Facultad Barberi de Ingeniería y Diseño
 Ingeniería Telemática  
 2025
 
----
-
-## 📄 Licencia
-
-Este proyecto es parte del trabajo académico de la Universidad ICESI.
-
----
-
-## 🤝 Contribuciones
-
-Para contribuir al proyecto:
-
-1. Fork el repositorio
-2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
-3. Commit: `git commit -am 'Agregar nueva funcionalidad'`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Crear Pull Request
-
----
-
-## 📞 Soporte
-
-Para preguntas o problemas:
-- Crear un issue en el repositorio
-- Contactar a los autores
