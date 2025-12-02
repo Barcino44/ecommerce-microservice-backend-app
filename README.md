@@ -501,19 +501,23 @@ bash# Grafana (LoadBalancer)
 kubectl get svc -n monitoring my-monitoring-grafana
 # Credenciales por defecto: admin / admin123
 
-# Prometheus
+### Prometheus
 kubectl port-forward -n monitoring svc/my-monitoring-prometheus 9090:9090
 
-# Jaeger UI
+### Jaeger UI
 kubectl port-forward -n prod svc/my-ecommerce-zipkin 16686:16686
 
-# Eureka Dashboard
+### Eureka Dashboard
 kubectl get svc -n prod my-ecommerce-service-discovery
 
 🛡️ Seguridad
 Pod Security Standards
-AmbientePolicyCaracterísticasdevbaseline- Permite contenedores privilegiados limitados- Filesystem parcialmente restringido- Ideal para desarrolloqabaseline- Configuración similar a dev- Mayor auditoríaprodrestricted- Máxima seguridad- runAsNonRoot obligatorio- readOnlyRootFilesystem- Todas las capabilities eliminadas- Seccomp RuntimeDefault
-Security Context (Producción)
+| **Ambiente** | **Policy**   | **Características** |
+|--------------|--------------|----------------------|
+| **dev**      | baseline     | Permite contenedores privilegiados limitados, Filesystem parcialmente restringido, Ideal para desarrollo |
+| **qa**       | baseline     | Configuración similar a dev, Mayor auditoría |
+| **prod**     | restricted   | Máxima seguridad, runAsNonRoot obligatorio, readOnlyRootFilesystem, Todas las capabilities eliminadas, Seccomp RuntimeDefault |
+
 
 ```yaml
 yaml# Pod Level
@@ -657,6 +661,7 @@ Ventajas:
 ✅ Rollback inmediato
 ✅ Zero downtime
 
+```yaml
 Configuración:
 yaml# values.yaml
 deploymentStrategy:
@@ -677,6 +682,8 @@ bash# Cambiar a green
 helm upgrade my-ecommerce ./helm/ecommerce \
   -f values-prod.yaml \
   --set cloud-config.deploymentStrategy.active=green
+```
+
 Comportamiento:
 
 Solo el deployment activo tiene réplicas > 0
@@ -691,10 +698,353 @@ Ventajas:
 ✅ Feedback rápido
 
 Configuración:
-yamlstable:
+
+```yaml
+stable:
   image:
     repository: barcino/api-gateway
     tag: v1.0.0
   replicaCount: 3
 
-canary
+canary:
+  image:
+  repository: barcino/api-gateway
+  tag: v1.1.0
+  replicaCount: 1  # 25% del tráfico
+```
+**Progresión**:
+```bash
+# 1. Introducir canary (10%)
+helm upgrade my-ecommerce ./helm/ecommerce \
+  --set api-gateway.canary.replicaCount=1 \
+  --set api-gateway.stable.replicaCount=9
+
+# 2. Aumentar canary (50%)
+helm upgrade my-ecommerce ./helm/ecommerce \
+  --set api-gateway.canary.replicaCount=5 \
+  --set api-gateway.stable.replicaCount=5
+
+# 3. Promover a stable
+helm upgrade my-ecommerce ./helm/ecommerce \
+  --set api-gateway.stable.image.tag=v1.1.0 \
+  --set api-gateway.stable.replicaCount=10 \
+  --set api-gateway.canary.replicaCount=0
+```
+
+---
+
+## 🛠️ Operaciones
+
+### Backup y Restore de Bases de Datos
+
+**Script automático**: `helm/ecommerce/backup.sh`
+```bash
+# Backup de todas las bases de datos
+./backup.sh
+# Seleccionar opción: 1
+
+# Restore
+./backup.sh
+# Seleccionar opción: 2
+```
+
+**Ubicación**: `./backup/<servicio>/`
+
+**Manual**:
+```bash
+# Backup de user-service
+kubectl exec -n prod -it <user-service-db-pod> -- \
+  mysqldump -u user -p12345 user-service_db | gzip > backup.sql.gz
+
+# Restore
+gunzip < backup.sql.gz | \
+  kubectl exec -n prod -i <user-service-db-pod> -- \
+    mysql -u user -p12345 user-service_db
+```
+
+### Verificación de Persistencia
+```bash
+# 1. Insertar dato
+kubectl exec -n prod -it <db-pod> -- mysql -u user -p12345 -e \
+  "INSERT INTO user-service_db.users (name) VALUES ('test');"
+
+# 2. Eliminar pod
+kubectl delete pod -n prod <db-pod>
+
+# 3. Verificar dato en nuevo pod
+kubectl exec -n prod -it <nuevo-db-pod> -- mysql -u user -p12345 -e \
+  "SELECT * FROM user-service_db.users WHERE name='test';"
+```
+
+### Logs
+```bash
+# Ver logs de un servicio
+kubectl logs -n prod -l app=user-service --tail=100 -f
+
+# Logs de init containers
+kubectl logs -n prod <pod> -c wait-for-dependencies
+
+# Logs de múltiples pods
+kubectl logs -n prod -l app=user-service --all-containers=true
+```
+
+### Escalado Manual
+```bash
+# Escalar stable deployment
+kubectl scale deployment -n prod my-ecommerce-user-service-stable --replicas=5
+
+# Vía Helm
+helm upgrade my-ecommerce ./helm/ecommerce \
+  -f values-prod.yaml \
+  --set user-service.stable.replicaCount=5
+```
+
+### Actualizar Cloud Config
+```bash
+# 1. Modificar configuración en GitHub
+git clone <cloud-config-repo>
+cd cloud-config-repo
+# Editar archivos...
+git commit -am "Update config"
+git push
+
+# 2. Reiniciar pod para recargar
+kubectl rollout restart deployment -n prod my-ecommerce-cloud-config-blue
+
+# 3. Verificar
+kubectl exec -n prod <pod> -- wget -qO- \
+  http://my-ecommerce-cloud-config:9296/user-service/prod
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problema: Pods en CrashLoopBackOff
+
+**Diagnóstico**:
+```bash
+# Ver estado
+kubectl get pods -n prod
+
+# Ver eventos
+kubectl describe pod -n prod <pod-name>
+
+# Ver logs
+kubectl logs -n prod <pod-name> --previous
+```
+
+**Causas comunes**:
+
+1. **Dependencias no disponibles**:
+```bash
+   # Verificar Eureka
+   kubectl get pods -n prod -l app=service-discovery
+   
+   # Verificar Cloud Config
+   kubectl get pods -n prod -l app=cloud-config
+```
+
+2. **Secrets no aplicados**:
+```bash
+   kubectl get secrets -n prod | grep db-credentials
+```
+   Solución:
+```bash
+   kubectl apply -f helm/secrets/sealedsecrets/prod/
+```
+
+3. **Network Policy bloqueando tráfico**:
+```bash
+   # Temporalmente deshabilitar para prueba
+   kubectl delete networkpolicy -n prod <policy-name>
+```
+
+### Problema: HPA no escala
+
+**Diagnóstico**:
+```bash
+kubectl get hpa -n prod
+kubectl describe hpa -n prod my-ecommerce-user-service-hpa-stable
+```
+
+**Causas**:
+
+1. **Metrics Server no instalado**:
+```bash
+   kubectl get deployment -n kube-system metrics-server
+```
+   Solución:
+```bash
+   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+2. **Recursos no definidos**:
+   Verificar en `values.yaml`:
+```yaml
+   resources:
+     requests:
+       cpu: "500m"
+       memory: "1700Mi"
+```
+
+### Problema: Sealed Secret no desencripta
+
+**Diagnóstico**:
+```bash
+kubectl get sealedsecrets -n prod
+kubectl describe sealedsecret -n prod <name>
+kubectl logs -n kube-system -l name=sealed-secrets-controller
+```
+
+**Solución**:
+```bash
+# Regenerar sealed secret con certificado correcto
+kubeseal --fetch-cert > mycert.pem
+echo -n "mypass" | kubectl create secret generic test \
+  --dry-run=client --from-file=pass=/dev/stdin -o yaml | \
+  kubeseal --cert mycert.pem -n prod -o yaml > sealed.yaml
+kubectl apply -f sealed.yaml
+```
+
+### Problema: Prometheus no recolecta métricas
+
+**Diagnóstico**:
+```bash
+# Verificar targets en Prometheus UI
+kubectl port-forward -n monitoring svc/my-monitoring-prometheus 9090:9090
+# Abrir http://localhost:9090/targets
+```
+
+**Causas**:
+
+1. **Anotaciones faltantes**:
+   Verificar en deployment:
+```yaml
+   annotations:
+     prometheus.io/scrape: "true"
+     prometheus.io/port: "8700"
+     prometheus.io/path: "/actuator/prometheus"
+```
+
+2. **Network Policy bloqueando Prometheus**:
+```yaml
+   - from:
+       - namespaceSelector:
+           matchLabels:
+             kubernetes.io/metadata.name: monitoring
+         podSelector:
+           matchLabels:
+             app: prometheus
+```
+
+### Problema: Ingress no resuelve
+
+**Diagnóstico**:
+```bash
+kubectl get ingress -n prod
+kubectl describe ingress -n prod my-ecommerce-api-gateway
+```
+
+**Solución**:
+```bash
+# 1. Verificar Ingress Controller
+kubectl get pods -n ingress-nginx
+
+# 2. Agregar entrada a /etc/hosts (local)
+echo "192.168.49.2 gateway.local" | sudo tee -a /etc/hosts
+
+# 3. Verificar certificado TLS
+kubectl get secret -n prod my-ecommerce-api-gateway-tls
+```
+
+---
+
+## 📝 Comandos Útiles
+
+### Helm
+```bash
+# Listar releases
+helm list -A
+
+# Ver valores computados
+helm get values my-ecommerce -n prod
+
+# Ver manifiesto completo
+helm get manifest my-ecommerce -n prod
+
+# Dry-run para validar
+helm install my-ecommerce ./helm/ecommerce -f values-prod.yaml --dry-run --debug
+
+# Rollback
+helm rollback my-ecommerce 1 -n prod
+
+# Actualizar una sola variable
+helm upgrade my-ecommerce ./helm/ecommerce -f values-prod.yaml \
+  --set user-service.stable.replicaCount=5 \
+  --reuse-values
+```
+
+### Kubectl
+```bash
+# Port-forward múltiple
+kubectl port-forward -n prod svc/my-ecommerce-service-discovery 8761:8761 &
+kubectl port-forward -n prod svc/my-ecommerce-api-gateway 8080:8080 &
+
+# Ejecutar comando en pod
+kubectl exec -n prod -it <pod> -- /bin/sh
+
+# Copiar archivos
+kubectl cp -n prod <pod>:/path/to/file ./local-file
+
+# Ver recursos consumidos
+kubectl top pods -n prod
+kubectl top nodes
+
+# Eventos del namespace
+kubectl get events -n prod --sort-by='.lastTimestamp'
+
+# Restart de deployments
+kubectl rollout restart deployment -n prod my-ecommerce-user-service-stable
+
+# Ver histórico de rollouts
+kubectl rollout history deployment -n prod my-ecommerce-user-service-stable
+```
+
+---
+
+## 👥 Autores
+
+- **Juan José Barrera Gracia**
+- **Andrés Mauricio Mesa Franco**
+
+**Universidad ICESI**  
+Facultad Barberi de Ingeniería y Diseño  
+Ingeniería Telemática  
+2025
+
+---
+
+## 📄 Licencia
+
+Este proyecto es parte del trabajo académico de la Universidad ICESI.
+
+---
+
+## 🤝 Contribuciones
+
+Para contribuir al proyecto:
+
+1. Fork el repositorio
+2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
+3. Commit: `git commit -am 'Agregar nueva funcionalidad'`
+4. Push: `git push origin feature/nueva-funcionalidad`
+5. Crear Pull Request
+
+---
+
+## 📞 Soporte
+
+Para preguntas o problemas:
+- Crear un issue en el repositorio
+- Contactar a los autores
