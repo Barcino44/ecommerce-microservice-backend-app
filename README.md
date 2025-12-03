@@ -74,20 +74,6 @@ Diagrama de Arquitectura
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| **Servicio**          | **Ingress**        | **Egress** | **Ports** |
-|-----------------------|--------------------|------------|-----------|
-| **API Gateway**       | Any source         | User Service, Product Service, Order Service, Payment Service, Shipping Service, Favourite Service, DNS | 8080 (gateway), 53 (DNS) |
-| **User Service**      | API Gateway        | User DB, Eureka, Cloud Config, Jaeger, DNS | 8700 (service), 3306 (MySQL), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Product Service**   | API Gateway        | Product DB, Eureka, Cloud Config, Jaeger, DNS | 8500 (service), 3306 (MySQL), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Order Service**     | API Gateway        | Order DB, Payment Service, Eureka, Cloud Config, Jaeger, DNS | 8300 (service), 3306 (MySQL), 8400 (payment), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Payment Service**   | API Gateway        | Payment DB, Order Service, Eureka, Cloud Config, Jaeger, DNS | 8400 (service), 3306 (MySQL), 8300 (order), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Shipping Service**  | API Gateway        | Shipping DB, Order Service, Product Service, Eureka, Cloud Config, Jaeger, DNS | 8600 (service), 3306 (MySQL), 8300 (order), 8500 (product), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Favourite Service** | API Gateway        | Favourite DB, Product Service, User Service, Eureka, Cloud Config, Jaeger, DNS | 8800 (service), 3306 (MySQL), 8500 (product), 8700 (user), 8761 (eureka), 9296 (config), 9411 (jaeger), 53 (DNS) |
-| **Proxy Client**      | Any source         | HTTP external, DNS | 8900 (proxy), 53 (DNS) |
-
-
-
-
 
 ✨ Características Principales
 🔒 Seguridad
@@ -351,21 +337,18 @@ Políticas específicas por servicio: Solo tráfico necesario
 
 Tabla de Network Policies
 
-| Política                   | Scope / Servicio       | Ingress Permitido                                                                 | Egress Permitido                                                                 | Descripción                 |
-|---------------------------|-------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------|-----------------------------|
-| default-deny-all          | Namespace completo      | ❌ Deny All                                                                        | ❌ Deny All                                                                       | Bloqueo por defecto         |
-| allow-dns                 | Namespace completo      | -                                                                                 | ✅ kube-system:53/UDP                                                             | Resolución DNS              |
-| api-gateway-policy        | api-gateway             | ✅ Ingress Controller<br>✅ Prometheus<br>✅ Todos los microservicios<br>✅ DNS       | -                                                                                | Gateway principal           |
-| user-service-policy       | user-service            | ✅ api-gateway<br>✅ favourite-service<br>✅ Prometheus<br>✅ user-service-db:3306<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Gestión de usuarios |
-| product-service-policy    | product-service         | ✅ proxy-client<br>✅ favourite-service<br>✅ shipping-service<br>✅ Prometheus<br>✅ product-service-db:3306<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Catálogo de productos |
-| order-service-policy      | order-service           | ✅ shipping-service<br>✅ payment-service<br>✅ Prometheus<br>✅ order-service-db:3306<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Procesamiento de órdenes |
-| payment-service-policy    | payment-service         | ✅ api-gateway<br>✅ Prometheus<br>✅ payment-service-db:3306<br>✅ order-service:8300<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Gestión de pagos |
-| shipping-service-policy   | shipping-service        | ✅ api-gateway<br>✅ Prometheus<br>✅ shipping-service-db:3306<br>✅ order-service:8300<br>✅ product-service:8500<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Gestión de envíos |
-| favourite-service-policy  | favourite-service       | ✅ api-gateway<br>✅ Prometheus<br>✅ favourite-service-db:3306<br>✅ product-service:8500<br>✅ user-service:8700<br>✅ eureka:8761<br>✅ cloud-config:9296<br>✅ jaeger:9411 | - | Lista de favoritos |
-| service-discovery-policy  | service-discovery       | ✅ Todos los microservicios<br>✅ Prometheus<br>✅ jaeger:9411<br>✅ DNS              | -                                                                                | Eureka Server               |
-| cloud-config-policy       | cloud-config            | ✅ Todos los microservicios<br>✅ Prometheus<br>✅ GitHub 443/HTTPS<br>✅ eureka:8761<br>✅ jaeger:9411<br>✅ DNS | - | Configuración centralizada |
-| jaeger-policy             | jaeger                  | ✅ Todos los microservicios<br>✅ Prometheus:14269<br>✅ Internet (80/443)<br>✅ DNS | -                                                                                | Trazabilidad distribuida    |
-| *-db-policy               | Bases de datos MySQL    | -                                                                                 | ✅ Solo su microservicio<br>✅ DNS                                                | Aislamiento de datos        |
+| **Servicio**          | **Ingress (Origen → Puerto)**                                                | **Egress (Destino → Puerto)**                                                                                                                    |
+|-----------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| **API Gateway**       | Any source → 8080                                     | User Service → 8080, Product Service → 8080, Order Service → 8080, Payment Service → 8080, Shipping Service → 8080, Favourite Service → 8080, DNS → 53, Cloud Config → 9296, Jaeger → 9411, Eureka → 8761 |
+| **User Service**      | API Gateway → 8700, Favourite Service → 8700                                 | User DB → 3306, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                                                                     |
+| **Product Service**   | API Gateway → 8500, Favourite Service → 8500, Shipping Service → 8500, Proxy Client → 8500 | Product DB → 3306, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                                                 |
+| **Order Service**     | API Gateway → 8300, Payment Service → 8300, Shipping Service → 8300          | Order DB → 3306, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                                                                     |
+| **Payment Service**   | API Gateway → 8400                                                           | Payment DB → 3306, Order Service → 8300, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                                            |
+| **Shipping Service**  | API Gateway → 8600                                                           | Shipping DB → 3306, Order Service → 8300, Product Service → 8500, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                    |
+| **Favourite Service** | API Gateway → 8800                                                           | Favourite DB → 3306, Product Service → 8500, User Service → 8700, Eureka → 8761, Cloud Config → 9296, Jaeger → 9411, DNS → 53                   |
+| **Proxy Client**      | API Gateway → 8900                                                           | HTTP external → 8900, DNS → 53  |
+
+
 
 
 Ejemplo de Network Policy
