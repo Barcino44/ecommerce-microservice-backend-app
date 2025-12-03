@@ -145,6 +145,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              app: locust
+      ports:
+        - protocol: TCP
+          port: 8080
   egress:
   # DNS
   - to:
@@ -1249,4 +1256,69 @@ spec:
         - protocol: UDP
           port: 53
 
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: locust-network-policy
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: locust
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # ------------------------
+  # INGRESS
+  # ------------------------
+  ingress:
+    # Permite acceder a la UI de Locust (NodePort o port-forward)
+    - from:
+        - namespaceSelector: {}   # cualquier namespace
+      ports:
+        - protocol: TCP
+          port: 8089
+
+  # ------------------------
+  # EGRESS
+  # ------------------------
+  egress:
+    # --- DNS ---
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # --- API Gateway (mismo namespace) ---
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+
+    # --- Ingress NGINX Controller (otro namespace) ---
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: controller
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
 ---
